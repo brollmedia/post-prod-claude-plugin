@@ -1,0 +1,13 @@
+{
+  "name": "post-prod",
+  "version": "0.1.0",
+  "description": "Review video cuts in post-prod.io from Claude Code: upload a version, share a review link, read frame-accurate notes, and check that the next version fixed them.",
+  "author": {
+    "name": "post-prod.io",
+    "email": "contact@post-prod.io",
+    "url": "https://post-prod.io"
+  },
+  "homepage": "https://post-prod.io/mcp",
+  "license": "MIT",
+  "keywords": ["video", "review", "feedback", "editing", "mcp", "post-production"]
+}

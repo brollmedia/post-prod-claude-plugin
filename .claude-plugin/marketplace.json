@@ -1,0 +1,26 @@
+{
+  "name": "post-prod",
+  "owner": {
+    "name": "post-prod.io",
+    "email": "contact@post-prod.io",
+    "url": "https://post-prod.io"
+  },
+  "metadata": {
+    "description": "post-prod.io for Claude Code: video review with notes on exact frames."
+  },
+  "plugins": [
+    {
+      "name": "post-prod",
+      "source": "./",
+      "description": "Upload a cut, share a review link, read frame-accurate notes, apply them, upload the next version and check the fixes.",
+      "category": "media",
+      "tags": [
+        "video",
+        "review",
+        "feedback",
+        "editing",
+        "mcp"
+      ]
+    }
+  ]
+}

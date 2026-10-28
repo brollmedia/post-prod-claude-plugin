@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "post-prod": {
+      "type": "http",
+      "url": "https://mcp.post-prod.io/mcp"
+    }
+  }
+}
