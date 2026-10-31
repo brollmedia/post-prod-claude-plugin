@@ -82,6 +82,11 @@ the Edit with Claude tab, so write it to the person, short. Back to `wait_for_fe
 With `watch: true` a wait brings tasks only: reviewers' notes and replies that nobody handed to you are not yours to make
 (the person decides what to send). If one ever shows up anyway, leave it and wait again.
 
+## Launch, product and explainer videos
+
+When the video is a short launch, product or explainer piece (30-90 s), or the style guide says so, also follow the launch-video-craft skill in this plugin for pacing, easing, camera moves, music level and sound: turn its rules into suggested edits, each with a one-line why. For any other kind of channel the style guide and its niche pack win (a gaming edit keeps its flashes and fast cuts).
+
+
 ## Rules
 
 - Nothing you do changes the video: edits are suggestions until the person accepts them in the room. Never call

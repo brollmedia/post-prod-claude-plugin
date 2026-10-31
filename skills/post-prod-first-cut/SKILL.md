@@ -100,6 +100,11 @@ in Final Cut). It is the cut the render would make, with a marker on every edit 
 "Not exported" markers: blurs, colour looks, swap shots, text fixes) and that the editor relinks to their original footage
 by name, since the video is not inside the file. Edits still waiting for a yes are not in it.
 
+## Launch, product and explainer videos
+
+When the video is a short launch, product or explainer piece (30-90 s), or the style guide says so, also follow the launch-video-craft skill in this plugin for pacing, easing, camera moves, music level and sound: turn its rules into suggested edits, each with a one-line why. For any other kind of channel the style guide and its niche pack win (a gaming edit keeps its flashes and fast cuts).
+
+
 ## Rules
 
 - Suggestions only. Never accept edits, render, share links or change the guide without the user's say-so.
