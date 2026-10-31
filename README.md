@@ -27,9 +27,25 @@ Then run `/mcp`, choose `post-prod` and sign in. Ask Claude: "send this render t
 
 Not wanting the plugin? The server alone is one command: `claude mcp add --transport http post-prod https://mcp.post-prod.io/mcp`.
 
-## Claude in the room: `/post-prod:watch`
+## Edit with Claude: `/post-prod:watch`
 
-Review in post-prod.io and let your own Claude Code make the changes: run `/post-prod:watch` (or start it with `claude --model opus "/post-prod:watch"`) and leave it open. When you post notes in the review room (Talk through it, or Send to Claude), or ask something in the room's Claude panel, it picks them up at once, makes them into suggested edits on the timeline, makes a preview and reports back in the room. It runs on your own Claude plan, on Opus, and never asks you anything in the terminal. `/post-prod:watch team` also takes teammates' notes when their own Claude is not watching. The room's Claude panel shows the same steps.
+Review in post-prod.io and let your own Claude Code make the changes. In the review room open the **Edit with Claude** tab (key 4): it walks through setup with a Copy button for each line and turns green when your Claude is watching. Needs a paid Claude plan (Pro or Max) and Claude Code open on a computer; it runs on your plan, on Opus. Claude.ai in the browser cannot watch in the background.
+
+Install and start (Mac and Linux):
+
+```
+claude update && claude plugin marketplace add brollmedia/post-prod-claude-plugin && claude plugin install post-prod@post-prod && claude --model opus "/post-prod:watch"
+```
+
+Windows PowerShell (5 does not accept `&&`, so run it with semicolons):
+
+```
+claude update; claude plugin marketplace add brollmedia/post-prod-claude-plugin; claude plugin install post-prod@post-prod; claude --model opus "/post-prod:watch"
+```
+
+Then, once, in Claude Code type `/mcp`, choose `post-prod` and sign in. Next time just run `/post-prod:watch` (or `claude --model opus "/post-prod:watch"`) and leave it open. `/post-prod:watch team` also takes teammates' notes when their own Claude is not watching.
+
+When you post notes in the review room (Talk through it, or Send to Claude), or ask something in the tab, it picks them up at once, goes through them one note at a time (the room shows a checklist and a progress bar from its `task_progress` calls: working, done with the edit ids, skipped or failed with a reason), makes each into suggested edits on the timeline, makes a preview and reports back in the room. It never asks you anything in the terminal. Full guide: https://post-prod.io/tutorials/edit-with-claude
 
 ## Publish (for Seth)
 
@@ -56,5 +72,5 @@ Submitting the plugin to Anthropic's directory is separate and optional: https:/
 .mcp.json                         registers the remote MCP server
 skills/post-prod-review/SKILL.md  the review-loop skill
 skills/post-prod-first-cut/SKILL.md the first-cut skill
-skills/watch/SKILL.md            /post-prod:watch, Claude in the room
+skills/watch/SKILL.md            /post-prod:watch, Edit with Claude
 ```
