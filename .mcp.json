@@ -2,7 +2,8 @@
   "mcpServers": {
     "post-prod": {
       "type": "http",
-      "url": "https://mcp.post-prod.io/mcp"
+      "url": "${POST_PROD_MCP_URL:-https://mcp.post-prod.io/mcp}",
+      "headersHelper": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/post-prod-headers.sh\""
     }
   }
 }
