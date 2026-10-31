@@ -16,7 +16,7 @@ Inside Claude Code:
 /plugin install post-prod@post-prod
 ```
 
-(`brollmedia/post-prod-claude-plugin` is the GitHub repository this folder is published to; see below.) Or from a shell:
+(`brollmedia/post-prod-claude-plugin` is the public GitHub repository this folder is published to; see below.) Or from a shell:
 
 ```
 claude plugin marketplace add brollmedia/post-prod-claude-plugin
@@ -26,6 +26,10 @@ claude plugin install post-prod@post-prod
 Then run `/mcp`, choose `post-prod` and sign in. Ask Claude: "send this render to post-prod for review", or run the skill directly as `/post-prod:post-prod-review`.
 
 Not wanting the plugin? The server alone is one command: `claude mcp add --transport http post-prod https://mcp.post-prod.io/mcp`.
+
+## Claude in the room: `/post-prod:watch`
+
+Review in post-prod.io and let your own Claude Code make the changes: run `/post-prod:watch` (or start it with `claude --model opus "/post-prod:watch"`) and leave it open. When you post notes in the review room (Talk through it, or Send to Claude), or ask something in the room's Claude panel, it picks them up at once, makes them into suggested edits on the timeline, makes a preview and reports back in the room. It runs on your own Claude plan, on Opus, and never asks you anything in the terminal. `/post-prod:watch team` also takes teammates' notes when their own Claude is not watching. The room's Claude panel shows the same steps.
 
 ## Publish (for Seth)
 
@@ -51,4 +55,6 @@ Submitting the plugin to Anthropic's directory is separate and optional: https:/
 .claude-plugin/marketplace.json   the one-plugin marketplace
 .mcp.json                         registers the remote MCP server
 skills/post-prod-review/SKILL.md  the review-loop skill
+skills/post-prod-first-cut/SKILL.md the first-cut skill
+skills/watch/SKILL.md            /post-prod:watch, Claude in the room
 ```
