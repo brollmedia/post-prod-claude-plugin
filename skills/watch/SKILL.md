@@ -88,6 +88,9 @@ Delete the temporary folder after the upload.
 1. `claim_task` with its `task_id`.
 2. Read the brief and open what is attached (`read_attachment`; look at images; for a video grab a few frames with ffmpeg
    and look at them; a link is the address and what they said about it).
+   When the brief has a **Project folder** (references, footage, music and sound the person put in the room's folder for
+   you), run its download commands first: they save each file in `post-prod-folder/` in the project. post-prod deletes
+   them 2 hours later, so never skip this, and use the saved copies from then on.
 3. Decide where the change is made (above).
 4. For each note, in order:
    - `task_progress` with its `note_id`, `state: "working"` and a few first-person words: "Changing the logo colour in
