@@ -3,7 +3,7 @@ name: watch
 description: Watch post-prod.io in the background and make the person's review notes into real changes to the video the moment they post them in the review room (Talk through it, typed notes sent to Claude, or a message in the room's Edit with Claude chat). Edits the video's source project when it is made from one (code, an editing project), else the footage itself with ffmpeg, and uploads the result as the next version. Runs as a quiet loop until stopped. Use when the user runs /post-prod:watch, or asks Claude to watch post-prod, keep an eye on their review, or make their notes as they come in.
 when_to_use: Phrases like watch post-prod, watch my review, make my notes as I post them, keep watching, Edit with Claude. Needs the post-prod MCP server connected (a paid post-prod.io plan).
 model: opus
-allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*)
+allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*)
 ---
 
 # Edit with Claude
@@ -41,7 +41,7 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 ## The loop (until stopped)
 
 Call `wait_for_feedback` with `watch: true` and your model name in `model` (and `for_team` in team mode). Do not pass
-`since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 9 minutes).
+`since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
 - **`{"idle":true,"next":"wait"}`**: nothing happened. Call `wait_for_feedback` again at once. Write nothing at all: no
   "still watching", no status line, no thinking out loud. Idle turns must stay tiny.
@@ -144,6 +144,8 @@ pacing, easing, camera moves, music level and sound, applied to the real project
 - One new version per task, with every note in it.
 - A refusal (`TASK_TAKEN`, `CREDITS`, `STORAGE_FULL`, `NO_ACCESS`) is not something to fight: say it in your reply (or
   leave a taken task) and carry on with the loop.
+- One command per shell call, with full paths: no `cd … &&`, no `;`, no pipes, no `$(…)`. A chained command
+  asks the person for permission in this terminal (they are in the room and never see it), so the loop stops.
 - Keep this terminal quiet: one line when you start, one line if you stop, nothing per wait, nothing per task.
 - Stop when the person presses Esc or says stop. If you stop for any other reason, say in one line how to start again:
   `/post-prod:watch`.
