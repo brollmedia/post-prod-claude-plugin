@@ -45,7 +45,7 @@ Call `wait_for_feedback` with `watch: true` and your model name in `model` (and 
 
 - **`{"idle":true,"next":"wait"}`**: nothing happened. Call `wait_for_feedback` again at once. Write nothing at all: no
   "still watching", no status line, no thinking out loud. Idle turns must stay tiny.
-- **`{"idle":true,"next":"stop"}`**: two hours with nothing to do. Say one line, "Going to sleep after 2 hours with
+- **`{"idle":true,"next":"stop"}`**: 20 minutes with nothing to do (nobody reviewing). Say one line, "Going to sleep after 20 minutes with
   nothing to do. Type /post-prod:watch to wake me.", and stop. The room says the same.
 - **A server restart** (`retry: true`): wait a few seconds, then call it again.
 - **A task**: it comes with everything you need: the notes with their timecodes, frames and drawing boxes, the words said
