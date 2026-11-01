@@ -1,6 +1,6 @@
 {
   "name": "post-prod",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Review video cuts in post-prod.io from Claude Code: upload a version, share a review link, read frame-accurate notes, and check that the next version fixed them.",
   "author": {
     "name": "post-prod.io",

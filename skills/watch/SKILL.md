@@ -105,7 +105,8 @@ Delete the temporary folder after the upload.
    `file_path`, `size_bytes`, `answers` (the note ids), `version_notes` (what changed and where) and `render_command` when
    there is one. Then run the curl command it gives you exactly as given. On Windows: in Git Bash use it as it is; in
    PowerShell type `curl.exe` instead of `curl` (PowerShell's `curl` is another command). Check the command succeeded.
-7. `complete_task` with `version_id` (the new version) and your reply as `summary`.
+7. `complete_task` with `version_id` (the new version) and your reply as `summary`. Set the reply out for the room: one short
+   paragraph per note, each starting with its timecode (`0:01`), a blank line between them, plain words, no headings.
 8. Back to `wait_for_feedback`.
 
 ## A brief ("What should your Claude know first?")
