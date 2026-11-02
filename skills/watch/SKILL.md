@@ -155,7 +155,10 @@ and the sound (copied untouched). Times are in the section's own seconds; areas 
     { "type": "blur", "area": [0.05, 0.6, 0.15, 0.1], "from": 0, "to": 20, "strength": 24 } ] }
 ```
 A checklist item appears at its `at` and is ticked half a second later (say each item where the speaker says it: find the
-times in the words). Subtitles come from the words file (`words_from` is the section's `from`). A **graphic** that does not
+times in the words); give it an `area` (`[x, y, w, h]`, the rows fit inside) to keep it clear of a face. Take the section
+(`get_section`) out to the end of the last sentence the effect belongs to, plus a second or two: an item said at the very end
+of a section is only on screen until the section stops. A number or fact on a graphic that you do not know (a subscriber
+count, a price, a date) is a placeholder: say so in your reply and ask for the real one. Subtitles come from the words file (`words_from` is the section's `from`). A **graphic** that does not
 exist yet (a map, a counter, a chart, a lower third with motion), make as an HTML page and record it:
 `cut-footage.mjs graphic page.html --seconds 6 --size 1920x1080 [--alpha]` (the person's Chrome or Edge, frame by frame on
 its own clock, so CSS animations, requestAnimationFrame and timers all come out smooth at any speed). Make the page at the

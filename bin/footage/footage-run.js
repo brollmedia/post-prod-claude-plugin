@@ -253,7 +253,7 @@ export async function readSources(edl, { base = process.cwd() } = {}) {
 /** Shot changes (seconds, on the source's frame grid) within SHOT_WINDOW_S of the given times: ffmpeg's scene score over
  *  those stretches only, so a long source costs a few seconds. A talking head's own movement scores under 0.035, a
  *  jump cut in the same room 0.1-0.2 (cavetown 597.90 s, 43.68 s), a cut to a graphic or a cutaway near 1. */
-export const SHOT_WINDOW_S = 2.5, SHOT_SCORE = 0.08;
+export const SHOT_WINDOW_S = 2.5, SHOT_SCORE = 0.03; // hulse 175.38 s: a head-turn jump cut scored 0.042 in footage whose median is 0.0016
 export async function findShots(file, times, info) {
   const fps = +info.fps || 30, wins = [];
   for (const t of [...times].sort((a, b) => a - b)) {
@@ -277,8 +277,9 @@ export async function findShots(file, times, info) {
       sc.forEach(([t, v], k) => {
         // and tower over the three frames either side. Repeated frames are dropped before scoring (mpdecimate): 25 fps
         // footage made 30 repeats every fifth frame, and the frame after a repeat carried two frames of movement, a false peak
-        const near = Math.max(0, ...sc.slice(Math.max(0, k - 3), k).map((x) => x[1]), ...sc.slice(k + 1, k + 4).map((x) => x[1]));
-        if (v <= line || v < 3 * near) return;
+        // (the frame right after a cut often carries its tail, so it is left out of the comparison)
+        const near = Math.max(0, ...sc.slice(Math.max(0, k - 3), k).map((x) => x[1]), ...sc.slice(k + 2, k + 5).map((x) => x[1]));
+        if (v <= line || v < 2 * near) return;
         const s = Math.round((a0 + t) * fps) / fps;
         if (s > a0 + 0.5 / fps) found.add(Math.round(s * 1e6) / 1e6);
       });

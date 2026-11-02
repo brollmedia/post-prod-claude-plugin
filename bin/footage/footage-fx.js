@@ -54,7 +54,7 @@ export function cleanEffects(spec, info) {
       if (!items.length) throw err('BAD_EFFECT', `Layer ${k + 1}: a checklist needs "items".`);
       // each item appears at its time (given, or spread over the first two thirds) and is ticked half a second later
       const at = items.map((_, i) => (Array.isArray(l.at) && Number.isFinite(+l.at[i]) ? Math.max(from, Math.min(to - 0.3, +l.at[i])) : from + ((to - from) * 0.66 * i) / items.length));
-      Object.assign(c, { items, at, title: l.title ? String(l.title).slice(0, 80) : null, position: l.position === 'right' ? 'right' : 'left' });
+      Object.assign(c, { items, at, title: l.title ? String(l.title).slice(0, 80) : null, position: l.position === 'right' ? 'right' : 'left', area: Array.isArray(l.area) ? area(l.area, k) : null });
     }
     if (l.type === 'subtitles') Object.assign(c, { words: l.words || spec.words || null, words_from: +(l.words_from ?? spec.words_from ?? 0) || 0 });
     if (l.type === 'graphic') {
@@ -71,13 +71,28 @@ export function cleanEffects(spec, info) {
   return out;
 }
 
-/** Subtitle lines from words: at most 7 words or 2.8 s a line, broken at pauses of 0.5 s or more. Times in the file's clock. */
+/** Text sized to fit maxW: drawtext neither wraps nor shrinks (a long title ran off both edges, 2 Nov 2026). Shrinks to
+ *  fit, down to 70% of the asked size; past that, two lines broken at the space nearest the middle. A bold face averages
+ *  about 0.56 of its size per character. -> { text, size, lines } */
+export function fitText(text, size, maxW) {
+  const w = (t, z) => t.length * 0.56 * z;
+  if (w(text, size) <= maxW) return { text, size, lines: 1 };
+  const shrunk = maxW / (text.length * 0.56);
+  const sp = [...text.matchAll(/ /g)].map((m) => m.index);
+  if (shrunk >= size * 0.7 || !sp.length) return { text, size: Math.max(8, shrunk), lines: 1 };
+  const at = sp.reduce((b, i) => (Math.abs(i - text.length / 2) < Math.abs(b - text.length / 2) ? i : b), sp[0]);
+  const two = [text.slice(0, at), text.slice(at + 1)], longest = Math.max(...two.map((t) => t.length));
+  return { text: two.join('\n'), size: Math.max(8, Math.min(size, maxW / (longest * 0.56))), lines: 2 };
+}
+
+/** Subtitle lines from words: at most 7 words or 2.8 s a line, broken at pauses of 0.5 s or more and where a sentence ends
+ *  (the engine's words carry their sentence as s; a line ran two together, 2 Nov 2026). Times in the file's clock. */
 export function subtitleLines(words, from, to, offset = 0) {
-  const ws = (words || []).map((w) => ({ t: +w.start - offset, e: +w.end - offset, w: String(w.word ?? w.text ?? '').trim() })).filter((w) => w.w && w.e > from && w.t < to);
+  const ws = (words || []).map((w) => ({ t: +w.start - offset, e: +w.end - offset, w: String(w.word ?? w.text ?? '').trim(), s: w.s })).filter((w) => w.w && w.e > from && w.t < to);
   const lines = []; let cur = null;
   for (const w of ws) {
-    if (cur && (cur.n >= 7 || w.e - cur.t > 2.8 || w.t - cur.e >= 0.5)) { lines.push(cur); cur = null; }
-    if (!cur) cur = { t: Math.max(from, w.t), e: w.e, text: w.w, n: 1 };
+    if (cur && (cur.n >= 7 || w.e - cur.t > 2.8 || w.t - cur.e >= 0.5 || (w.s != null && cur.s != null && w.s !== cur.s))) { lines.push(cur); cur = null; }
+    if (!cur) cur = { t: Math.max(from, w.t), e: w.e, text: w.w, n: 1, s: w.s };
     else { cur.text += ` ${w.w}`; cur.e = w.e; cur.n++; }
   }
   if (cur) lines.push(cur);
@@ -101,8 +116,10 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
     const [ax, ay, aw, ah] = l.area, Z = Math.min(1 / aw, 1 / ah, 4), cx = ax + aw / 2, cy = ay + ah / 2, p = ease(l.from, l.to, l.ease);
     const z = `(1+${num(Z - 1)}*(${p}))`;
     const o = next();
-    // scaled up by z, a W×H window kept around the area's centre (which moves from the frame's centre as z grows)
-    parts.push(`${cur}scale=w='${W}*${z}':h='${H}*${z}':eval=frame:flags=bicubic,crop=w=${W}:h=${H}:x='max(0,min(in_w-${W},(0.5+(${num(cx)}-0.5)*(${p}))*in_w-${W / 2}))':y='max(0,min(in_h-${H},(0.5+(${num(cy)}-0.5)*(${p}))*in_h-${H / 2}))',setsar=1${o}`);
+    // scaled up by z, a W×H window kept around the area's centre (which moves from the frame's centre as z grows).
+    // crop's in_w/in_h are fixed at setup (the unzoomed size), so the zoomed size is spelled out as W*z, H*z.
+    const iw = `${W}*${z}`, ih = `${H}*${z}`;
+    parts.push(`${cur}scale=w='${iw}':h='${ih}':eval=frame:flags=bicubic,crop=w=${W}:h=${H}:x='max(0,min(${iw}-${W},(0.5+(${num(cx)}-0.5)*(${p}))*${iw}-${W / 2}))':y='max(0,min(${ih}-${H},(0.5+(${num(cy)}-0.5)*(${p}))*${ih}-${H / 2}))',setsar=1${o}`);
     cur = o;
   }
   for (const l of layers.filter((x) => x.type === 'blur')) {
@@ -131,12 +148,17 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
     const size = 84 * S, sub = 44 * S;
     const yOf = { top: `${Math.round(110 * S)}`, center: `(h-text_h)/2-${l.sub ? Math.round(36 * S) : 0}`, bottom: `h-text_h-${Math.round(170 * S)}`, 'lower-third': `h-text_h-${Math.round(260 * S)}`, left: `(h-text_h)/2`, right: `(h-text_h)/2` }[l.position];
     const xOf = l.position === 'lower-third' || l.position === 'left' ? `${Math.round(110 * S)}` : l.position === 'right' ? `w-text_w-${Math.round(110 * S)}` : '(w-text_w)/2';
-    drawn.push(draw(l.text, { x: xOf, y: yOf, size, a: l.from, b: l.to }));
-    if (l.sub) drawn.push(draw(l.sub, { x: xOf, y: `${yOf}+${Math.round(size * 1.5)}`, size: sub, a: l.from + 0.15, b: l.to, box: 0.45 }));
+    const maxW = (l.position === 'center' || l.position === 'top' || l.position === 'bottom' ? 0.9 : 0.6) * W;
+    const t = fitText(l.text, size, maxW), u = l.sub ? fitText(l.sub, sub, maxW) : null;
+    drawn.push(draw(t.text, { x: xOf, y: yOf, size: t.size, a: l.from, b: l.to }));
+    if (u) drawn.push(draw(u.text, { x: xOf, y: `${yOf}+${Math.round(t.size * (1.25 * t.lines + 0.35))}`, size: u.size, a: l.from + 0.15, b: l.to, box: 0.45 }));
   }
   for (const l of layers.filter((x) => x.type === 'checklist')) {
-    const size = 50 * S, gap = Math.round(size * 1.9), x0 = l.position === 'right' ? Math.round(W * 0.56) : Math.round(110 * S);
-    const y0 = Math.round(H / 2 - ((l.items.length + (l.title ? 1 : 0)) * gap) / 2);
+    // placed by its area when given (the right-hand column covered a face, 2 Nov 2026): rows shrink to fit its height
+    const rows = l.items.length + (l.title ? 1 : 0), A = l.area;
+    const size = A ? Math.min(50 * S, (A[3] * H) / (rows * 1.9)) : 50 * S, gap = Math.round(size * 1.9);
+    const x0 = A ? Math.round(A[0] * W) : l.position === 'right' ? Math.round(W * 0.56) : Math.round(110 * S);
+    const y0 = A ? Math.round(A[1] * H) : Math.round(H / 2 - (rows * gap) / 2);
     let row = 0;
     if (l.title) { drawn.push(draw(l.title, { x: `${x0}`, y: `${y0}`, size: size * 1.15, a: l.from, b: l.to })); row = 1; }
     l.items.forEach((it, i) => {
@@ -144,13 +166,13 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
       const shown = `between(t,${num(l.at[i])},${num(l.to)})`, ticked = `between(t,${num(Math.min(l.to, l.at[i] + 0.5))},${num(l.to)})`;
       drawn.push(`drawbox=x=${bx}:y=${by}:w=${box}:h=${box}:color=white@0.95:t=${Math.max(2, Math.round(size * 0.08))}:enable='${shown}'`);
       drawn.push(`drawbox=x=${bx + Math.round(box * 0.2)}:y=${by + Math.round(box * 0.2)}:w=${Math.round(box * 0.6)}:h=${Math.round(box * 0.6)}:color=0x3DDC84@1:t=fill:enable='${ticked}'`);
-      drawn.push(draw(it, { x: `${bx + Math.round(box * 1.5)}`, y: `${y}`, size, a: l.at[i], b: l.to, box: 0.5 }));
+      drawn.push(draw(it, { x: `${bx + Math.round(box * 1.5)}`, y: `${y}`, size: fitText(it, size, A ? A[2] * W - box * 1.6 : W * 0.42).size, a: l.at[i], b: l.to, box: 0.5 }));
     });
   }
   for (const l of layers.filter((x) => x.type === 'subtitles')) {
     const words = wordsOf(l);
     if (!words?.length) throw err('NO_WORDS', 'Subtitles need the words: give "words" (the .words.json from get_words) and, for a section, "words_from" (where the section starts in that file).');
-    for (const s of subtitleLines(words, l.from, l.to)) drawn.push(draw(s.text, { x: '(w-text_w)/2', y: `h-text_h-${Math.round(90 * S)}`, size: 54 * S, a: s.t, b: s.e, box: 0.6, alpha: '1' }));
+    for (const s of subtitleLines(words, l.from, l.to)) drawn.push(draw(s.text, { x: '(w-text_w)/2', y: `h-text_h-${Math.round(90 * S)}`, size: fitText(s.text, 54 * S, W * 0.9).size, a: s.t, b: s.e, box: 0.6, alpha: '1' }));
   }
   if (drawn.length) { const o = next(); parts.push(`${cur}${drawn.join(',')}${o}`); cur = o; }
   return { graph: parts.length ? parts.join(';') : null, out: cur, inputs, texts };
@@ -300,7 +322,7 @@ export async function graphic({ html, output, width = 1920, height = 1080, fps =
   } finally {
     if (enc && enc.exitCode == null) try { enc.kill(); } catch { /* already gone */ }
     // the browser's profile folder goes once the browser has let go of it (Windows keeps its files locked until it exits)
-    if (proc.exitCode == null) { const gone = new Promise((r) => proc.once('exit', r)); try { proc.kill(); } catch { /* already gone */ } await Promise.race([gone, new Promise((r) => setTimeout(r, 5000))]); }
+    if (proc.exitCode == null) { const gone = new Promise((r) => proc.once('exit', r)); try { if (process.platform === 'win32') spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }); else proc.kill(); } catch { /* already gone */ } await Promise.race([gone, new Promise((r) => setTimeout(r, 5000))]); }
     try { fs.rmSync(prof, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch (e) { console.error(`[footage] graphic: the browser's temporary profile ${prof} was left behind: ${e.message}`); }
   }
 }
