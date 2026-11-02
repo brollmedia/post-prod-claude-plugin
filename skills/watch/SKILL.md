@@ -137,6 +137,32 @@ take a stretch (not made by x264, e.g. the camera file), `upload_section` says s
 already have the whole version on disk, `cut-footage.mjs splice --base <file> --from <s> --to <s> --section <file> --out <file>`
 does the same locally before `upload_file`.
 
+**Effects: titles, checklists, subtitles, graphics, zooms, blurs.** A note like "put a title here", "add a checklist of the
+three tips", "subtitles on the intro", "show a map of the route", "zoom in on the screen", "blur the house number" is an
+effect on a stretch, not a cut: `get_section` around it, `cut-footage.mjs effect <effects.json>` on the section, then
+`upload_section` as above. Never hand-write drawtext or overlay filter graphs; the effect command handles fonts, timing, fades
+and the sound (copied untouched). Times are in the section's own seconds; areas are `[x, y, w, h]` as fractions of the frame
+(look at a frame first to place them).
+```json
+{ "input": "section.mp4", "output": "section-fx.mp4", "words": "v2.words.json", "words_from": 755,
+  "layers": [
+    { "type": "title", "text": "Day 3: the summit", "sub": "optional second line", "position": "top|center|bottom|lower-third|left|right", "from": 0.5, "to": 4 },
+    { "type": "checklist", "title": "You need", "items": ["Boots", "Water", "A map"], "at": [5, 6.5, 8], "from": 5, "to": 12 },
+    { "type": "subtitles", "from": 0, "to": 20 },
+    { "type": "graphic", "file": "map.mp4", "mode": "full", "from": 12, "to": 18, "fade": 0.3 },
+    { "type": "graphic", "file": "logo.png", "mode": "box", "area": [0.7, 0.05, 0.25, 0.2], "from": 2, "to": 6 },
+    { "type": "zoom", "area": [0.3, 0.1, 0.4, 0.4], "from": 6, "to": 9, "ease": 0.4 },
+    { "type": "blur", "area": [0.05, 0.6, 0.15, 0.1], "from": 0, "to": 20, "strength": 24 } ] }
+```
+A checklist item appears at its `at` and is ticked half a second later (say each item where the speaker says it: find the
+times in the words). Subtitles come from the words file (`words_from` is the section's `from`). A **graphic** that does not
+exist yet (a map, a counter, a chart, a lower third with motion), make as an HTML page and record it:
+`cut-footage.mjs graphic page.html --seconds 6 --size 1920x1080 [--alpha]` (the person's Chrome or Edge, frame by frame on
+its own clock, so CSS animations, requestAnimationFrame and timers all come out smooth at any speed). Make the page at the
+video's size and animate it from load; `--alpha` keeps a transparent page background transparent (a `.mov` to lay OVER the
+picture with `"mode": "full"`); without it the graphic is opaque (a cutaway that replaces the picture while the voice goes
+on). Look at a frame of the result before you upload, and say in your reply what you added where.
+
 **Retention cues.** When a render's `cues` lists a subscribe or merch ask, or a sponsor read, say once in your reply where it
 is and that in Retti's data viewers leave more in the ~22 seconds after one (correlation, long-form only), and offer to
 shorten or move it. Never claim that an edit improves retention, and never move it without the person saying so.

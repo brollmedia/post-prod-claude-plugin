@@ -8,6 +8,9 @@
 //   node cut-footage.mjs splice --base <file> --from <s> --to <s> --section <file> --out <file>
 //                                                           change one stretch of a finished file, copy the rest
 //   node cut-footage.mjs check  <file>                      decode errors, black, sound and picture lengths
+//   node cut-footage.mjs effect <effects.json>              titles, a checklist, subtitles, graphics, a zoom, a blur on a stretch
+//   node cut-footage.mjs graphic <page.html> --seconds <s> [--fps 30] [--size 1920x1080] [--alpha] [--out <file>]
+//                                                           an HTML animation recorded to video in the person's Chrome or Edge
 //
 // Every command prints one JSON object. render and splice include "cut_report": pass it to complete_task as is.
 import fs from 'node:fs';
@@ -17,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { planCut, planSummary } = await import(pathToUrl(path.join(here, 'footage', 'footage-core.js')));
 const { readSources, render, splice, check, reportLines, probe } = await import(pathToUrl(path.join(here, 'footage', 'footage-run.js')));
+const { applyEffects, graphic } = await import(pathToUrl(path.join(here, 'footage', 'footage-fx.js')));
 function pathToUrl(p) { return new URL(`file:///${p.replace(/\\/g, '/').replace(/^\/+/, '')}`).href; }
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -60,8 +64,20 @@ try {
     if (!rest[0]) throw Object.assign(new Error('Give the file to check.'), { code: 'NO_FILE' });
     const r = await check(rest[0]);
     out({ ok: r.ok, report: r, lines: reportLines({ report: r }) });
+  } else if (cmd === 'effect') {
+    const { edl: spec, base } = readEdl(rest[0]);
+    const t0 = Date.now();
+    const r = await applyEffects(spec, { base, quality: spec.quality === 'draft' ? 'draft' : 'high', log: (m) => process.stderr.write(`${m}\n`) });
+    const rep = await check(r.file);
+    out({ ok: rep.ok, file: r.file, seconds: Math.round((Date.now() - t0) / 100) / 10, layers: r.layers, length_s: r.length_s, input_length_s: r.input_length_s, lines: reportLines({ report: rep }), report: rep });
+  } else if (cmd === 'graphic') {
+    if (!rest[0] || rest[0].startsWith('--')) throw Object.assign(new Error('Give the page: graphic <page.html> --seconds <s>.'), { code: 'BAD_ARGS' });
+    const [w, h] = String(flag('size') || '1920x1080').split('x').map(Number);
+    const t0 = Date.now();
+    const r = await graphic({ html: rest[0], output: flag('out'), width: w, height: h, fps: +flag('fps') || 30, seconds: +flag('seconds') || 5, alpha: rest.includes('--alpha'), log: (m) => process.stderr.write(`${m}\n`) });
+    out({ ok: true, ...r, seconds_taken: Math.round((Date.now() - t0) / 100) / 10 });
   } else {
-    out({ ok: false, code: 'USAGE', error: 'Commands: plan <edit-list.json> | render <edit-list.json> [--force] | splice --base --from --to --section --out | check <file>' });
+    out({ ok: false, code: 'USAGE', error: 'Commands: plan <edit-list.json> | render <edit-list.json> [--force] | splice --base --from --to --section --out | check <file> | effect <effects.json> | graphic <page.html> --seconds <s> [--alpha]' });
     process.exit(2);
   }
 } catch (e) { fail(e); }

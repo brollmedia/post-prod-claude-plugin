@@ -244,8 +244,47 @@ export async function readSources(edl, { base = process.cwd() } = {}) {
     if (!fs.existsSync(p)) throw Object.assign(new Error(`Source ${id}: no file at ${p}.`), { code: 'NO_SOURCE' });
     paths[id] = p; infos[id] = await probe(p);
     if (s.words) wordsBy[id] = loadWords(typeof s.words === 'string' ? path.resolve(base, s.words) : s.words, +s.words_from || 0);
+    const edges = (edl.clips || []).filter((c) => String(c.src) === id).flatMap((c) => [+c.in, +c.out]).filter(Number.isFinite);
+    if (edges.length && infos[id].width > 0) infos[id].shots = await findShots(p, edges, infos[id]);
   }
   return { infos, wordsBy, srcPath: (id) => paths[id] };
+}
+
+/** Shot changes (seconds, on the source's frame grid) within SHOT_WINDOW_S of the given times: ffmpeg's scene score over
+ *  those stretches only, so a long source costs a few seconds. A talking head's own movement scores under 0.035, a
+ *  jump cut in the same room 0.1-0.2 (cavetown 597.90 s, 43.68 s), a cut to a graphic or a cutaway near 1. */
+export const SHOT_WINDOW_S = 2.5, SHOT_SCORE = 0.08;
+export async function findShots(file, times, info) {
+  const fps = +info.fps || 30, wins = [];
+  for (const t of [...times].sort((a, b) => a - b)) {
+    const a = Math.max(0, t - SHOT_WINDOW_S), b = Math.min(info.duration || Infinity, t + SHOT_WINDOW_S);
+    if (wins.length && a <= wins[wins.length - 1][1]) wins[wins.length - 1][1] = Math.max(wins[wins.length - 1][1], b); else wins.push([a, b]);
+  }
+  const found = new Set();
+  let i = 0;
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (i < wins.length) {
+      const [a, b] = wins[i++];
+      // the window starts a frame early, so a change on its first frame still has a frame before it to score against
+      const a0 = Math.max(0, a - 1 / fps);
+      const { err } = await run(FF, ['-hide_banner', '-nostats', '-ss', num(a0), '-t', num(b - a0), '-i', file, '-map', '0:v:0', '-an', '-vf', 'scale=160:-2,mpdecimate=hi=200:lo=100:frac=0.5,select=\'gte(scene\\,0)\',metadata=print', '-f', 'null', '-']);
+      const sc = []; let pt = null;
+      for (const l of err.split(/\r?\n/)) { const p = /pts_time:\s*([\d.]+)/.exec(l); if (p) pt = +p[1]; const s = /scene_score=([\d.]+)/.exec(l); if (s && pt != null) { sc.push([pt, +s[1]]); pt = null; } }
+      // handheld footage moves all the time (vlog-raw scores 0.05-0.15 every few frames): a shot change must also stand
+      // well clear of this window's own movement
+      const sorted = sc.map((x) => x[1]).sort((x, y) => x - y), median = sorted[Math.floor(sorted.length / 2)] || 0;
+      const p90 = sorted[Math.floor(sorted.length * 0.9)] || 0, line = Math.max(SHOT_SCORE, 4 * median, 2 * p90);
+      sc.forEach(([t, v], k) => {
+        // and tower over the three frames either side. Repeated frames are dropped before scoring (mpdecimate): 25 fps
+        // footage made 30 repeats every fifth frame, and the frame after a repeat carried two frames of movement, a false peak
+        const near = Math.max(0, ...sc.slice(Math.max(0, k - 3), k).map((x) => x[1]), ...sc.slice(k + 1, k + 4).map((x) => x[1]));
+        if (v <= line || v < 3 * near) return;
+        const s = Math.round((a0 + t) * fps) / fps;
+        if (s > a0 + 0.5 / fps) found.add(Math.round(s * 1e6) / 1e6);
+      });
+    }
+  }));
+  return [...found].sort((x, y) => x - y);
 }
 
 /**
