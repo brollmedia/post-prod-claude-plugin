@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { planCut, tidyWords, segmentSamples, gainAt, spliceWindow, x264ParamsFrom, fpsArg, RATE, SEAM_MS, planSummary, clock } from './footage-core.js';
+import { planCut, tidyWords, segmentSamples, gainAt, spliceWindow, x264ParamsFrom, ppsFields, fpsArg, RATE, SEAM_MS, planSummary, clock, MIN_CLIP_S } from './footage-core.js';
 
 const FF71 = 'C:/Users/sethf/tools/ffmpeg-7.1-essentials_build/bin/ffmpeg.exe';
 export const FF = process.env.FFMPEG || (fs.existsSync(FF71) ? FF71 : 'ffmpeg');
@@ -275,9 +275,10 @@ export async function splice({ base, from, to, section, out, quality = 'high', w
     if (!(to > from) || from < 0 || to > info.duration + 0.05) throw Object.assign(new Error(`The stretch ${from}-${to} s is not inside the file (${r3(info.duration)} s).`), { code: 'BAD_RANGE' });
     // the whole cut as an edit list: base before, the new stretch, base after (hard cuts; the sound blends over 12 ms)
     const clips = [
-      ...(from > 0.02 ? [{ src: 'base', in: 0, out: from }] : []),
+      // a change starting (or ending) under MIN_CLIP_S from the file's start (or end) takes that sliver with it
+      ...(from >= MIN_CLIP_S ? [{ src: 'base', in: 0, out: from }] : []),
       { src: 'section', in: 0, out: secInfo.duration, seam: { type: 'cut', ms: SEAM_MS.cut.def } },
-      ...(to < info.duration - 0.02 ? [{ src: 'base', in: to, out: info.duration, seam: { type: 'cut', ms: SEAM_MS.cut.def } }] : []),
+      ...(to <= info.duration - MIN_CLIP_S ? [{ src: 'base', in: to, out: info.duration, seam: { type: 'cut', ms: SEAM_MS.cut.def } }] : []),
     ];
     const edl = { sources: { base: { path: base }, section: { path: section } }, clips, quality };
     const infos = { base: info, section: secInfo }, srcPath = (id) => (id === 'base' ? base : section);
@@ -294,21 +295,45 @@ export async function splice({ base, from, to, section, out, quality = 'high', w
     if (Math.abs(plan.fps - info.fps) > 0.01 || plan.W !== info.width || plan.H !== info.height) return await full('the file\'s size or frame rate is uneven');
     const pk = await packets(base);
     const keys = pk.filter((p) => p.key).map((p) => p.pts);
-    const win = spliceWindow(keys, from, to, info.duration);
+    // a sliver of the base between a keyframe and the change (under MIN_CLIP_S) cannot play on its own: reach to the keyframe before
+    // (or after) instead, so the encoded stretch holds at least that much of the base on each side
+    const kBefore = (t) => keys.filter((k) => k <= t + 1e-6).pop() ?? 0, kAfter = (t) => keys.find((k) => k >= t - 1e-6) ?? info.duration;
+    const k0 = from - kBefore(from) > 0.001 && from - kBefore(from) < MIN_CLIP_S ? kBefore(Math.max(0, kBefore(from) - 0.001)) : null;
+    const k1 = kAfter(to) - to > 0.001 && kAfter(to) - to < MIN_CLIP_S ? kAfter(kAfter(to) + 0.001) : null;
+    const win0 = spliceWindow(keys, from, to, info.duration);
+    const win = win0 && { ...win0, ...(k0 != null ? { k0, head: k0 } : {}), ...(k1 != null ? { k1: Math.min(k1, info.duration), tail: Math.max(0, info.duration - k1) } : {}) };
     if (!win) return await full('the change covers most of the file');
 
     // the middle: base[k0, from) + section + base[to, k1), encoded with the base's settings
     const mclips = [
-      ...(from - win.k0 > 0.02 ? [{ src: 'base', in: win.k0, out: from }] : []),
+      ...(from - win.k0 > 0.001 ? [{ src: 'base', in: win.k0, out: from }] : []),
       { src: 'section', in: 0, out: secInfo.duration, seam: { type: 'cut' } },
-      ...(win.k1 - to > 0.02 ? [{ src: 'base', in: to, out: win.k1, seam: { type: 'cut' } }] : []),
+      ...(win.k1 - to > 0.001 ? [{ src: 'base', in: to, out: win.k1, seam: { type: 'cut' } }] : []),
     ];
     if (!mclips[0].seam) delete mclips[0].seam;
-    const mplan = planCut({ sources: edl.sources, clips: mclips, quality }, infos, {});
+    let mplan;
+    try { mplan = planCut({ sources: edl.sources, clips: mclips, quality }, infos, {}); }
+    catch (e) { if (e.code !== 'CLIP_TOO_SHORT') throw e; return await full('the change starts or ends too close to the first or last keyframe'); }
     log(`encoding ${r3(mplan.out_dur)} s around the change, copying ${r3(win.head)} s before and ${r3(win.tail)} s after`);
     const { vfiles } = await renderPlan(mplan, { srcPath, infos, dir, out: null, log, x264: hdr.x264, timescale: info.timescale, videoPieces: mplan.video.map((_, k) => k) });
-    const mh = await streamHeaders(vfiles[0]);
-    if (mh.sps.join() !== hdr.sps.join() || mh.pps.join() !== hdr.pps.join()) return await full('the new stretch\'s stream settings do not match the file\'s');
+    let mh = await streamHeaders(vfiles[0]);
+    if (mh.sps.join() === hdr.sps.join() && mh.pps.join() !== hdr.pps.join() && mh.pps.length === 1 && hdr.pps.length === 1) {
+      // an x264 build that lowers the chroma offset differently: correct it by the difference once and encode the middle again
+      const want = ppsFields(hdr.pps[0]), got = ppsFields(mh.pps[0]), d = want.chroma_qp - got.chroma_qp;
+      const others = Object.keys(want).filter((k) => k !== 'chroma_qp' && want[k] !== got[k]);
+      if (d && !others.length) {
+        const fixed = hdr.x264.replace(/chroma-qp-offset=(-?\d+)/, (m0, x) => `chroma-qp-offset=${+x + d}`);
+        log(`the stretch's chroma offset came out ${got.chroma_qp}, the file's is ${want.chroma_qp}: encoding it again`);
+        for (const f of vfiles) fs.rmSync(f, { force: true });
+        vfiles.splice(0, vfiles.length, ...(await renderPlan(mplan, { srcPath, infos, dir, out: null, log, x264: fixed, timescale: info.timescale, videoPieces: mplan.video.map((_, k) => k) })).vfiles);
+        mh = await streamHeaders(vfiles[0]);
+      }
+    }
+    if (mh.sps.join() !== hdr.sps.join() || mh.pps.join() !== hdr.pps.join()) {
+      const diff = mh.pps[0] && hdr.pps[0] ? Object.entries(ppsFields(hdr.pps[0])).filter(([k, v]) => ppsFields(mh.pps[0])[k] !== v).map(([k]) => k).join(', ') : 'sps';
+      console.error(`[footage] splice: the stretch's parameter sets differ from the file's (${diff || 'sps'})`);
+      return await full(`the new stretch's stream settings do not match the file's (${diff || 'sequence'})`);
+    }
 
     // head: the packets before the keyframe at k0 in decode order (a closed group of pictures ends right before it);
     // tail: from the keyframe at k1

@@ -397,7 +397,13 @@ export function x264ParamsFrom(seiText) {
   // the rate control too: the picture parameter set's starting QP comes from it (a stretch at crf 16 in a file made at crf 23
   // gets a different PPS, and its slices would decode wrong against the file's)
   const keep = ['crf', 'qp', 'bitrate', 'vbv_maxrate', 'vbv_bufsize', 'ip_ratio', 'pb_ratio', 'cabac', 'ref', 'deblock', 'analyse', 'me', 'subme', 'psy', 'mixed_ref', 'me_range', 'chroma_me', 'trellis', '8x8dct', 'cqm', 'deadzone', 'fast_pskip', 'chroma_qp_offset', 'decimate', 'interlaced', 'bluray_compat', 'constrained_intra', 'bframes', 'b_pyramid', 'b_adapt', 'b_bias', 'direct', 'weightb', 'open_gop', 'weightp', 'keyint', 'keyint_min', 'scenecut', 'intra_refresh', 'rc_lookahead', 'mbtree', 'qcomp', 'qpmin', 'qpmax', 'qpstep', 'aq'];
-  const rc = /rc=(w+)/.exec(m[1])?.[1] || 'crf';
+  const rc = /\brc=(\w+)/.exec(m[1])?.[1] || 'crf';
+  // x264 lowers the chroma QP offset by 1 or 2 for each of psy-rd and psy-trellis (when on) and writes the lowered value here;
+  // asked for as written it would lower it again (2 Nov 2026, the live splice: -2 became -4 and the PPS no longer matched)
+  const opt = (k) => (m[1].split(/\s+/).find((kv) => kv.startsWith(`${k}=`)) || '').slice(k.length + 1) || null;
+  const [psyRd, psyTrellis] = String(opt('psy_rd') || '0:0').split(':').map(Number);
+  const psyOn = opt('psy') === '1', subme = +opt('subme') || 0, trellis = +opt('trellis') || 0;
+  const psyLift = (psyOn && psyRd > 0 && subme >= 6 ? (psyRd < 0.25 ? 1 : 2) : 0) + (psyOn && psyTrellis > 0 && trellis > 0 ? (psyTrellis < 0.25 ? 1 : 2) : 0);
   const map = { ip_ratio: 'ipratio', pb_ratio: 'pbratio', vbv_maxrate: 'vbv-maxrate', vbv_bufsize: 'vbv-bufsize', analyse: 'partitions', me: 'me', '8x8dct': '8x8dct', mixed_ref: 'mixed-refs', me_range: 'merange', chroma_me: 'chroma-me', fast_pskip: 'fast-pskip', chroma_qp_offset: 'chroma-qp-offset', b_pyramid: 'b-pyramid', b_adapt: 'b-adapt', b_bias: 'b-bias', open_gop: 'open-gop', keyint_min: 'min-keyint', rc_lookahead: 'rc-lookahead', intra_refresh: 'intra-refresh', bluray_compat: 'bluray-compat', constrained_intra: 'constrained-intra' };
   const out = [];
   for (const kv of m[1].trim().split(/\s+/)) {
@@ -406,10 +412,25 @@ export function x264ParamsFrom(seiText) {
     if (k === 'analyse' || k === 'psy' || k === 'cqm' || k === 'deadzone' || k === 'aq' || k === 'interlaced' || k === 'decimate' || k === 'qcomp') continue; // not settable 1:1, and not in the SPS/PPS
     if (k === 'keyint' && v === 'infinite') continue;
     if ((k === 'crf' && rc !== 'crf') || (k === 'qp' && rc !== 'cqp') || (k === 'bitrate' && !['abr', 'cbr', '2pass'].includes(rc))) continue;
+    if (k === 'chroma_qp_offset') { out.push(`chroma-qp-offset=${+v + psyLift}`); continue; }
     if (k === 'deblock') { const [on, a, b] = v.split(':'); out.push(on === '0' ? 'no-deblock=1' : `deblock=${a},${b}`); continue; }
     out.push(`${map[k] || k}=${v.replace(/:/g, ',')}`);
   }
   return out.join(':');
+}
+
+/** The fields of an H.264 picture parameter set (hex of the NAL unit, header byte included) that x264 settings decide. */
+export function ppsFields(hex) {
+  const b = Buffer.from(hex, 'hex').subarray(1);
+  let pos = 0;
+  const bit = () => { const v = (b[pos >> 3] >> (7 - (pos & 7))) & 1; pos++; return v; };
+  const bits = (n) => { let v = 0; for (let i = 0; i < n; i++) v = (v << 1) | bit(); return v; };
+  const ue = () => { let z = 0; while (bit() === 0 && z < 32) z++; return (1 << z) - 1 + bits(z); };
+  const se = () => { const k = ue(); return k & 1 ? (k + 1) / 2 : -(k / 2); };
+  const o = { pps_id: ue(), sps_id: ue(), cabac: bit(), bottom_field_pic_order: bit(), slice_groups: ue() };
+  if (o.slice_groups) return o;
+  Object.assign(o, { ref_l0: ue(), ref_l1: ue(), weighted_pred: bit(), weighted_bipred: bits(2), init_qp: se(), init_qs: se(), chroma_qp: se(), deblock_control: bit(), constrained_intra: bit(), redundant_pic_cnt: bit() });
+  return o;
 }
 
 // ── helpers ──
