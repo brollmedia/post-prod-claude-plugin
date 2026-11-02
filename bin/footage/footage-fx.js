@@ -137,7 +137,9 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
     const g = next(), o = next();
     const fit = l.mode === 'full' ? `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black@0` : `scale=${w}:${h}:force_original_aspect_ratio=decrease`;
     const fades = l.fade > 0 ? `,fade=t=in:st=0:d=${num(l.fade)}:alpha=1,fade=t=out:st=${num(Math.max(0, l.to - l.from - l.fade))}:d=${num(l.fade)}:alpha=1` : '';
-    parts.push(`[${idx}:v]fps=${num(fps)},format=yuva420p,${fit}${fades},trim=duration=${num(l.to - l.from)},setpts=PTS-STARTPTS+${num(l.from)}/TB${g}`);
+    // its last frame is held a second past its end before the cut to length: a graphic file a frame short of the stretch let
+    // a frame of the picture under it flash through at the end (found by a person's Claude on a real job, 2 Nov 2026)
+    parts.push(`[${idx}:v]fps=${num(fps)},format=yuva420p,${fit},tpad=stop_mode=clone:stop_duration=1${fades},trim=duration=${num(l.to - l.from)},setpts=PTS-STARTPTS+${num(l.from)}/TB${g}`);
     parts.push(`${cur}${g}overlay=x='${x}+(${w}-overlay_w)/2':y='${y}+(${h}-overlay_h)/2':eof_action=pass:enable='between(t,${num(l.from)},${num(l.to)})'${o}`);
     cur = o;
   }
