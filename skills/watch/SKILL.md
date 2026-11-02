@@ -22,6 +22,11 @@ real thing.
 `task_progress` (a line while you work), `ask_person` (a question) and `complete_task` (your reply). Keep this terminal
 quiet.
 
+**Check in while you work.** Call `task_progress` at least every two minutes, also during a long render (run it in the
+background and check in while it runs): the room tells the person how it is going from these. **Stop means stop**: if
+`task_progress` (or any task call) answers `TASK_STOPPED`, the person pressed Stop. Stop that job at once, change nothing
+more, upload nothing, and `complete_task` with `failed: true` and the summary it gives.
+
 Use the tool names as they appear in the tool list (they carry the `post-prod` prefix).
 
 ## Before the loop (once)
