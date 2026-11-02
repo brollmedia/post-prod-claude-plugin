@@ -113,7 +113,11 @@ export async function renderPiece(piece, { srcPath, shape, quality, out, x264 = 
     return ff(['-y', '-ss', num(piece.a.t), '-t', num(D + 1), '-i', srcPath(piece.a.src), '-ss', num(piece.b.t), '-t', num(D + 1), '-i', srcPath(piece.b.src), '-filter_complex', fc, '-map', '[v]', '-an', '-frames:v', String(N), '-r', fpsArg(shape.fps), ...enc, ...ts, out]);
   }
   const fades = [...(piece.fadeIn ? [`fade=t=in:s=0:n=${piece.fadeIn}`] : []), ...(piece.fadeOut ? [`fade=t=out:s=${Math.max(0, N - piece.fadeOut)}:n=${Math.max(1, piece.fadeOut - 1)}`] : [])]; // the last frame fully black
-  return ff(['-y', '-ss', num(piece.t), '-t', num(N / shape.fps + 1), '-i', srcPath(piece.src), '-map', '0:v:0', '-an', '-vf', [chain, ...fades].join(','), '-frames:v', String(N), '-r', fpsArg(shape.fps), ...enc, ...ts, out]);
+  // held frames (a stray stretch of another shot at an edge, footage-core flashFree): the clean edge frame repeats there.
+  // tpad spaces its clones by the link's frame rate: without the fps filter before it they shared one timestamp and collapsed
+  const hs = piece.holdStart || 0, he = piece.holdEnd || 0;
+  const hold = hs || he ? [`trim=end_frame=${N - hs - he}`, 'setpts=PTS-STARTPTS', `fps=${fpsArg(shape.fps)}`, `tpad=start_mode=clone:start=${hs}:stop_mode=clone:stop=${he}`] : [];
+  return ff(['-y', '-ss', num(piece.t), '-t', num(N / shape.fps + 1), '-i', srcPath(piece.src), '-map', '0:v:0', '-an', '-vf', [chain, ...hold, ...fades].join(','), '-frames:v', String(N), '-r', fpsArg(shape.fps), ...enc, ...ts, out]);
 }
 
 /** One sound segment as raw 48 kHz stereo s16le: every audio track of the source mixed (OBS writes several: mic, game,
@@ -245,9 +249,26 @@ export async function readSources(edl, { base = process.cwd() } = {}) {
     paths[id] = p; infos[id] = await probe(p);
     if (s.words) wordsBy[id] = loadWords(typeof s.words === 'string' ? path.resolve(base, s.words) : s.words, +s.words_from || 0);
     const edges = (edl.clips || []).filter((c) => String(c.src) === id).flatMap((c) => [+c.in, +c.out]).filter(Number.isFinite);
-    if (edges.length && infos[id].width > 0) infos[id].shots = await findShots(p, edges, infos[id]);
+    // exact: the edges as given, frame for frame (a replacement of an exact stretch): no shot-aware moves, holds or seam changes
+    if (edges.length && infos[id].width > 0 && edl.exact !== true) { const sh = await findShots(p, edges, infos[id]); infos[id].shots = sh; infos[id].shotScore = sh.score; }
   }
-  return { infos, wordsBy, srcPath: (id) => paths[id] };
+  return { infos, wordsBy, srcPath: (id) => paths[id], looks: edl.exact === true ? {} : await joinLooks(edl, infos, paths) };
+}
+
+/** How different the two sides' pictures are at each join that asks for a J or L (mean absolute difference of 48x27 colour
+ *  frames, 0-255; colour counts: two shots can share their brightness): planCut makes a same-framing J or L a plain cut, as the mouth would not match the words. -> { k: diff } */
+export async function joinLooks(edl, infos, paths) {
+  const out = {}, clips = edl.clips || [];
+  const grey = async (id, t) => { const { out: b } = await run(FF, ['-hide_banner', '-loglevel', 'error', '-ss', num(Math.max(0, t)), '-i', paths[id], '-frames:v', '1', '-vf', 'scale=48:27,format=rgb24', '-f', 'rawvideo', '-'], { raw: true }); return b; };
+  for (let k = 1; k < clips.length; k++) {
+    const A = clips[k - 1], B = clips[k], type = B.seam && B.seam.type;
+    if ((type !== 'j' && type !== 'l') || !paths[A.src] || !paths[B.src] || !(infos[A.src]?.width > 0)) continue;
+    try {
+      const [a, b] = await Promise.all([grey(String(A.src), +A.out - 0.1), grey(String(B.src), +B.in + 0.1)]);
+      if (a.length && a.length === b.length) { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); out[k] = Math.round((d / a.length) * 10) / 10; }
+    } catch (e) { console.error(`[footage] could not compare the pictures at join ${k}: ${e.message}`); }
+  }
+  return out;
 }
 
 /** Shot changes (seconds, on the source's frame grid) within SHOT_WINDOW_S of the given times: ffmpeg's scene score over
@@ -260,7 +281,7 @@ export async function findShots(file, times, info) {
     const a = Math.max(0, t - SHOT_WINDOW_S), b = Math.min(info.duration || Infinity, t + SHOT_WINDOW_S);
     if (wins.length && a <= wins[wins.length - 1][1]) wins[wins.length - 1][1] = Math.max(wins[wins.length - 1][1], b); else wins.push([a, b]);
   }
-  const found = new Set();
+  const found = new Set(), score = {};
   let i = 0;
   await Promise.all(Array.from({ length: 4 }, async () => {
     while (i < wins.length) {
@@ -281,11 +302,12 @@ export async function findShots(file, times, info) {
         const near = Math.max(0, ...sc.slice(Math.max(0, k - 3), k).map((x) => x[1]), ...sc.slice(k + 2, k + 5).map((x) => x[1]));
         if (v <= line || v < 2 * near) return;
         const s = Math.round((a0 + t) * fps) / fps;
-        if (s > a0 + 0.5 / fps) found.add(Math.round(s * 1e6) / 1e6);
+        if (s > a0 + 0.5 / fps) { const r = Math.round(s * 1e6) / 1e6; found.add(r); score[r] = Math.max(score[r] || 0, Math.round(v * 1000) / 1000); }
       });
     }
   }));
-  return [...found].sort((x, y) => x - y);
+  // the times, sorted; .score[t]: each change's scene score (how different the two shots look)
+  return Object.assign([...found].sort((x, y) => x - y), { score });
 }
 
 /**
@@ -294,7 +316,7 @@ export async function findShots(file, times, info) {
  */
 export async function render(edl, { base = process.cwd(), work = null, force = false, log = () => {}, only = null } = {}) {
   const src = await readSources(edl, { base });
-  const plan = planCut(edl, src.infos, src.wordsBy);
+  const plan = planCut(edl, src.infos, src.wordsBy, { looks: src.looks });
   if (plan.problems.length && !force) throw Object.assign(new Error(`Not rendered: ${plan.problems.map((p) => p.message).join(' ')}`), { code: 'MID_SENTENCE', plan });
   const out = path.resolve(base, edl.output || 'cut.mp4');
   const dir = work || fs.mkdtempSync(path.join(os.tmpdir(), 'pp-cut-'));

@@ -44,7 +44,7 @@ try {
   if (cmd === 'plan') {
     const { edl, base } = readEdl(rest[0]);
     const src = await readSources(edl, { base });
-    const p = planCut(edl, src.infos, src.wordsBy);
+    const p = planCut(edl, src.infos, src.wordsBy, { looks: src.looks });
     out({ ok: !p.problems.length, summary: planSummary(p), clips: p.clips, joins: p.joins.map((j) => ({ k: j.k, at: j.at, seam: j.seam })), problems: p.problems, warnings: p.warnings, cues: p.cues, out_dur: p.out_dur });
   } else if (cmd === 'render') {
     const { edl, base } = readEdl(rest[0]);

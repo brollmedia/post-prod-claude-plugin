@@ -117,8 +117,13 @@ missing, `ask_person` to install ffmpeg and stop the task). Each command prints 
    `cut` (the default: a hard picture cut, the sound blended over 12 ms), `j` (the next voice starts under the picture
    before, ms is how early: a new thought or a reply), `l` (the picture changes while the voice before finishes: a
    reaction), `crossfade` (sound blended longer, for a change of room tone), `dissolve` (picture and sound blended: time has
-   passed), `dip` (through black: a new chapter). Talking heads are mostly hard cuts with a few J cuts; use dissolves and
-   dips rarely and say why. `from` is the version you started from (its length and number) for the room's report. A section from another recording (a pickup, a new take filmed later) is just another source: the engine brings its voice to the level of the first clip; its picture is not colour-matched, so look at a frame either side and say so if it jumps.
+   passed), `dip` (through black: a new chapter). Talking heads are mostly hard cuts; use dissolves and dips rarely and
+   say why. A J or L cut only between two different pictures (another angle, a cutaway, a different person): on the same
+   framing the speaker's mouth would not match the words, so the engine makes a same-framing J or L a cut with the sound
+   crossfaded and says so (`JL_SAME_SHOT`). The engine also keeps stray frames of the source's own shots out of every join:
+   it moves an edge onto the source's cut when only silence is between, holds a clean frame over a few stray ones, or moves
+   the picture edge (the plan's `picture_moves`). To replace an exact stretch frame for frame, set `"exact": true`: none of
+   that happens. `from` is the version you started from (its length and number) for the room's report. A section from another recording (a pickup, a new take filmed later) is just another source: the engine brings its voice to the level of the first clip; its picture is not colour-matched, so look at a frame either side and say so if it jumps.
 4. **Plan, then render.** `plan <edit-list.json>` first. Each `MID_SENTENCE` problem is a cut that skips words of a sentence
    that is heard: move that edge to the sentence's start or end (the problem says which), or, only when the person asked for
    exactly that cut, set `"allow_mid_sentence": true`. Then `render <edit-list.json>`. It refuses while problems remain.
@@ -178,6 +183,10 @@ shorten or move it. Never claim that an edit improves retention, and never move 
    When the brief has a **Project folder** (references, footage, music and sound the person put in the room's folder for
    you), run its download commands first: they save each file in `post-prod-folder/` in the project. post-prod deletes
    them 2 hours later, so never skip this, and use the saved copies from then on.
+   **Footage comes from the person, never from you.** A note that wants a different shot, a new clip, B-roll, a song or any
+   picture or sound that is not in the project, the version or the folder: `ask_person` to put it in the room's folder
+   (Folder, under the message box) and say what you need ("the wide shot of the summit, or any clip of it"). Never download
+   footage, music or images from the web or stock sites, and never make up a shot to stand in for one: wait for theirs.
 3. Decide where the change is made (above).
 4. For each note, in order:
    - `task_progress` with its `note_id`, `state: "working"` and a few first-person words: "Changing the logo colour in

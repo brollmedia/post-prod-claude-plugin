@@ -230,7 +230,7 @@ export function joinBreaks(prev, next, wordsOf) {
  * arithmetic, and where each clip lands. infos: ffprobe per source; wordsBy: { <src>: tidied words }.
  * -> { fps, W, H, frames, out_dur, clips: [...], video: [...pieces], audio: [...segments], joins: [...], problems, warnings }
  */
-export function planCut(edl, infos, wordsBy = {}) {
+export function planCut(edl, infos, wordsBy = {}, { looks = null } = {}) {
   const e = cleanEdl(edl, infos);
   const first = infos[e.clips[0].src] || {};
   if (!(first.width > 0 && first.height > 0)) throw err('NO_PICTURE', `Source ${e.clips[0].src} has no picture to set the size from.`);
@@ -248,6 +248,21 @@ export function planCut(edl, infos, wordsBy = {}) {
     if (!contIn) { const s = snapEdge(w, c.in, 'in'); c.in = s.t; if (Math.abs(s.moved) > 0.02) c.snapped_in = s.moved; }
     if (!contOut) { const s = snapEdge(w, c.out, 'out'); c.out = Math.min(s.t, +infos[c.src]?.duration || Infinity); if (Math.abs(s.moved) > 0.02) c.snapped_out = s.moved; }
     if (c.out - c.in < MIN_CLIP_S) throw err('CLIP_TOO_SHORT', `Clip ${k + 1}: after moving its edges onto the gaps between words only ${r3(c.out - c.in)} s is left. Check its in and out.`, { clip: k + 1 });
+  }
+  // 1b) an edge just short of the source's own cut moves onto it, sound and picture together, when only silence lies between:
+  // edited footage cuts in its pauses, and this is the cleanest join there is (no stray frames, no J or L where the two sides
+  // are the same framing and the mouth would not match the words; Seth, 2 Nov 2026). Never across a word.
+  for (let k = 0; k < clips.length; k++) {
+    const c = clips[k], w = wordsOf(c.src), shots = infos[c.src]?.shots, prev = clips[k - 1], next = clips[k + 1];
+    if (!shots?.length) continue;
+    const silent = (a, b) => !(w || []).some((x) => x.end > a + 0.02 && x.start < b - 0.02);
+    const contIn = prev && prev.src === c.src && Math.abs(prev.asked.out - c.asked.in) < 0.05;
+    const contOut = next && next.src === c.src && Math.abs(next.asked.in - c.asked.out) < 0.05;
+    const inf = infos[c.src];
+    const sIn = shots.filter((s) => s > c.in + 0.02 && s < c.in + flashFor(inf, s) && s < c.out - MIN_CLIP_S).pop(); // the last one: past every stray
+    if (!contIn && sIn != null && w && silent(c.in, sIn)) { c.shot_in = r3(sIn - c.in); c.in = sIn; }
+    const sOut = shots.find((s) => s < c.out - 0.02 && s > c.out - flashFor(inf, s) && s > c.in + MIN_CLIP_S);
+    if (!contOut && sOut != null && w && silent(sOut, c.out)) { c.shot_out = r3(sOut - c.out); c.out = sOut; }
   }
 
   // 2) whole frames, and where each clip lands
@@ -290,6 +305,12 @@ export function planCut(edl, infos, wordsBy = {}) {
       warnings.push({ code: 'SEAM_TOO_LONG', join: k, message: `Join ${k}: a ${s.ms} ms ${s.type} is about as long as a clip beside it; made a cut instead.` });
       B.seam = { type: 'cut', ms: SEAM_MS.cut.def }; ov[k] = SEAM_MS.cut.def / 1000; continue;
     }
+    // a J or L between two sides of the same framing shows a mouth that does not match the words: a picture cut with the
+    // sound crossfaded instead (looks: how different the two sides' pictures are at the join, from readSources)
+    if ((s.type === 'j' || s.type === 'l') && looks && looks[k] != null && looks[k] < SAME_LOOK) {
+      warnings.push({ code: 'JL_SAME_SHOT', join: k, message: `Join ${k}: both sides are the same framing, so a ${s.type === 'j' ? 'J' : 'L'} cut would show the speaker's mouth out of step with the words; made a cut with the sound crossfaded instead.` });
+      B.seam = { type: 'crossfade', ms: SEAM_MS.crossfade?.def || 120 }; ov[k] = B.seam.ms / 1000; continue;
+    }
     if (s.type === 'j') { vshift[k] = d; ov[k] = JL_BLEND_S; }
     else if (s.type === 'l') { vshift[k] = -d; ov[k] = JL_BLEND_S; }
     else if (s.type === 'dip') dip[k] = d;
@@ -300,7 +321,7 @@ export function planCut(edl, infos, wordsBy = {}) {
   J.push(frames);
   for (let k = 0; k + 1 < J.length; k++) if (!(J[k + 1] > J[k])) throw err('SEAM_TOO_LONG', `Clip ${k + 1} is shorter than the J and L cuts on its two sides.`, { clip: k + 1 });
   const srcT = (k, f) => clips[k].in + (f - Math.round(clips[k].start * fps)) / fps; // source time of output frame f in clip k
-  const picture_moves = flashFree(J, clips, infos, fps, srcT, warnings);
+  const { moves: picture_moves, holdEnd, holdStart } = flashFree(J, clips, infos, fps, srcT, warnings);
   const video = [];
   for (let k = 0; k < clips.length; k++) {
     const c = clips[k], dIn = k > 0 && clips[k].seam.type === 'dissolve' ? clips[k].seam.ms / 1000 : 0, dOut = k + 1 < clips.length && clips[k + 1].seam.type === 'dissolve' ? clips[k + 1].seam.ms / 1000 : 0;
@@ -313,7 +334,8 @@ export function planCut(edl, infos, wordsBy = {}) {
     const f0 = J[k] + fIn, f1 = J[k + 1] - fOut;
     if (f1 - f0 < 1) throw err('SEAM_TOO_LONG', `Clip ${k + 1} is shorter than the dissolves on its two sides.`, { clip: k + 1 });
     video.push({
-      kind: 'clip', clip: k, src: c.src, t: r6(srcT(k, f0)), frames: f1 - f0,
+      kind: 'clip', clip: k, src: c.src, t: r6(srcT(k, f0) + (holdStart[k] || 0) / fps), frames: f1 - f0,
+      ...(holdStart[k] ? { holdStart: holdStart[k] } : {}), ...(holdEnd[k] ? { holdEnd: holdEnd[k] } : {}),
       ...(dip[k] ? { fadeIn: Math.max(1, Math.round((dip[k] / 2) * fps)) } : {}),
       ...(dip[k + 1] ? { fadeOut: Math.max(1, Math.round((dip[k + 1] / 2) * fps)) } : {}),
     });
@@ -329,36 +351,64 @@ export function planCut(edl, infos, wordsBy = {}) {
   });
   return {
     fps, W, H, frames, out_dur: r6(out_dur), quality: e.quality, output: e.output,
-    clips: clips.map((c) => ({ i: c.i, src: c.src, in: r3(c.in), out: r3(c.out), start: r3(c.start), end: r3(c.end), frames: c.frames, seam: c.seam, asked: c.asked, ...(c.snapped_in ? { snapped_in: c.snapped_in } : {}), ...(c.snapped_out ? { snapped_out: c.snapped_out } : {}), ...(c.why ? { why: c.why } : {}) })),
+    clips: clips.map((c) => ({ i: c.i, src: c.src, in: r3(c.in), out: r3(c.out), start: r3(c.start), end: r3(c.end), frames: c.frames, seam: c.seam, asked: c.asked, ...(c.snapped_in ? { snapped_in: c.snapped_in } : {}), ...(c.snapped_out ? { snapped_out: c.snapped_out } : {}), ...(c.shot_in ? { shot_in: c.shot_in } : {}), ...(c.shot_out ? { shot_out: c.shot_out } : {}), ...(c.why ? { why: c.why } : {}) })),
     video, audio, joins, problems, warnings, ...(picture_moves.length ? { picture_moves } : {}),
     cues: cuesFor(clips, wordsOf, out_dur),
   };
 }
 
-/** Under this much of a shot at a picture edge reads as a flash, not a shot. */
-export const FLASH_S = 0.4;
+/** Under this much of a shot at a picture edge reads as a flash, not a shot. 0.4 s let through 12 frames of an unrelated
+ *  wide shot (hulse 1:11) and 0.4 s of face before a split screen (cavetown 0:13): Seth saw both as flashes (2 Nov 2026). */
+export const FLASH_S = 1.0;
+/** Two pictures closer than this (mean absolute difference, 0-255, on 48x27 colour) show the same speaker: measured on the bench
+ *  (2 Nov 2026), a jump cut on one framing is 4-12, a punch-in on the same person 15-25 (the mouth still shows), a cut to
+ *  a graphic, another angle or a cutaway 34 and up. */
+export const SAME_LOOK = 30;
+/** A jump cut on similar framing (scene score under BIG_SHOT) is a flash only when shorter than FLASH_SMALL_S: a whole second
+ *  rule moved pictures by up to 1.6 s at ordinary jump cuts, mouths out of step with words (2 Nov 2026). A change to a graphic,
+ *  a wide shot or a split screen keeps FLASH_S. No score known: treated as a big change. */
+export const BIG_SHOT = 0.25, FLASH_SMALL_S = 0.5;
+const flashFor = (info, s) => ((info?.shotScore?.[s] ?? 1) >= BIG_SHOT ? FLASH_S : FLASH_SMALL_S);
+/** A stray stretch this short (frames) at a picture edge is covered by holding the clean frame beside it: 3 held frames are
+ *  invisible, where moving the join would drag the other side into its own neighbouring shot (cavetown 0:09, 2 Nov 2026). */
+export const HOLD_MAX_F = 8; // 6 stray frames plus HOLD_MARGIN_F
+/** A change that comes in over a few frames is timed at its peak, a frame or two late (hulse 1:11): holds start this early. */
+export const HOLD_MARGIN_F = 2;
 /**
  * A shot change in the source a few frames from a picture edge shows as a flash: 1-3 frames of a graphic or a cutaway
  * before the join (Seth, 2 Nov 2026: cavetown's tweet card at 0:09, 4 of its 13 joins). Edges sit on the word clock, which
  * cannot see the picture. Each picture join moves to the nearest frame where neither side shows under
  * FLASH_S of another shot; the sound stays where it is, so the move is a few frames of J or L. infos[src].shots: the
  * source's shot changes in seconds (readSources finds them near the edges); none known, nothing moves. Moves J in place;
- * -> [{ join, frames }] for the joins moved. A join with no clean frame within reach stays and the plan warns.
+ * A stray stretch of HOLD_MAX_F frames or fewer is held over instead (the clean frame beside it repeats; nothing moves).
+ * -> { moves: [{ join, frames }], holdEnd: { clip: frames }, holdStart: { clip: frames } }. A join with no clean frame within
+ * reach stays and the plan warns.
  */
 export function flashFree(J, clips, infos, fps, srcT, warnings = []) {
-  const moves = [], e = 0.5 / fps, M = Math.ceil(3 * FLASH_S * fps); // reach: the stray shot plus a whole FLASH_S of the other side
+  const moves = [], holdEnd = {}, holdStart = {}, e = 0.5 / fps, M = Math.ceil(2 * FLASH_S * fps); // reach: the stray shot plus a whole FLASH_S of the other side
   const half = (k) => (clips[k]?.seam?.type === 'dissolve' ? Math.round((clips[k].seam.ms / 2000) * fps) : 0);
   for (let k = 1; k < clips.length; k++) {
-    const sA = infos[clips[k - 1].src]?.shots || [], sB = infos[clips[k].src]?.shots || [];
+    const iA = infos[clips[k - 1].src], iB = infos[clips[k].src], sA = iA?.shots || [], sB = iB?.shots || [];
     if (!sA.length && !sB.length) continue;
     const durA = +infos[clips[k - 1].src]?.duration || Infinity;
     // A shows source frames [a0, ta), B shows [tb, b1) (a dissolve: each runs on half the blend past the join): a shot change
     // inside either, under FLASH_S from where it stops showing, is a flash
     const h = half(k);
-    const flashA = (Jk) => { const ta = srcT(k - 1, Jk + h), a0 = srcT(k - 1, J[k - 1]); return sA.some((s) => s > ta - FLASH_S && s < ta - e && s > a0 + e); };
-    const flashB = (Jk) => { const tb = srcT(k, Jk - h), b1 = srcT(k, J[k + 1]); return sB.some((s) => s > tb + e && s < tb + FLASH_S && s < b1 - e); };
+    const flashA = (Jk) => { const ta = srcT(k - 1, Jk + h), a0 = srcT(k - 1, J[k - 1]); return sA.some((s) => s > ta - flashFor(iA, s) && s < ta - e && s > a0 + e); };
+    const flashB = (Jk) => { const tb = srcT(k, Jk - h), b1 = srcT(k, J[k + 1]); return sB.some((s) => s > tb + e && s < tb + flashFor(iB, s) && s < b1 - e); };
     const fA = flashA(J[k]), fB = flashB(J[k]);
     if (!fA && !fB) continue;
+    // short stray stretches: hold the clean frame beside them (not across a dissolve, whose frames blend)
+    if (!h) {
+      const ta = srcT(k - 1, J[k]), tb = srcT(k, J[k]), a0 = srcT(k - 1, J[k - 1]), b1 = srcT(k, J[k + 1]);
+      const inA = sA.filter((s) => s > ta - flashFor(iA, s) && s < ta - e && s > a0 + e), inB = sB.filter((s) => s > tb + e && s < tb + flashFor(iB, s) && s < b1 - e);
+      const nA = inA.length ? Math.min(Math.round((ta - Math.min(...inA)) * fps) + HOLD_MARGIN_F, J[k] - J[k - 1] - 2) : 0, nB = inB.length ? Math.min(Math.round((Math.max(...inB) - tb) * fps) + HOLD_MARGIN_F, J[k + 1] - J[k] - 2) : 0;
+      if (nA <= HOLD_MAX_F && nB <= HOLD_MAX_F && J[k] - J[k - 1] - (holdStart[k - 1] || 0) - nA >= 2 && J[k + 1] - J[k] - nB >= 2) {
+        if (nA) holdEnd[k - 1] = nA;
+        if (nB) holdStart[k] = nB;
+        continue;
+      }
+    }
     // the stray shot is cut away, never shown longer: a flash at A's end moves the join earlier (A ends before it), one at
     // B's start later (B starts after it); both, either way
     const steps = fA && !fB ? [-1] : fB && !fA ? [1] : [-1, 1];
@@ -375,7 +425,7 @@ export function flashFree(J, clips, infos, fps, srcT, warnings = []) {
     moves.push({ join: k, frames: best - J[k] });
     J[k] = best;
   }
-  return moves;
+  return { moves, holdEnd, holdStart };
 }
 
 // ── 4. retention cues on the cut ──
