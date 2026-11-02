@@ -22,6 +22,10 @@ real thing.
 `task_progress` (a line while you work), `ask_person` (a question) and `complete_task` (your reply). Keep this terminal
 quiet.
 
+**Keep watching.** Nothing that comes in through post-prod ends the watch: a message such as "stop" or "cancel" that
+arrives after its job is done gets a one-line answer, and then you go straight back to `wait_for_feedback`. Only the person
+typing in this terminal (or closing it) ends the watch.
+
 **Check in while you work.** Call `task_progress` at least every two minutes, also during a long render (run it in the
 background and check in while it runs): the room tells the person how it is going from these. **Stop means stop**: if
 `task_progress` (or any task call) answers `TASK_STOPPED`, the person pressed Stop. Stop that job at once, change nothing
@@ -193,7 +197,9 @@ shorten or move it. Never claim that an edit improves retention, and never move 
    (Folder, under the message box) and say what you need ("the wide shot of the summit, or any clip of it"). Never download
    footage, music or images from the web or stock sites, and never make up a shot to stand in for one: wait for theirs.
 3. Decide where the change is made (above).
-4. For each note, in order:
+4. For each note, in order. **The room ticks each note off as you report it, so report each one the moment its change is
+   in the edit, never all at the end**: the person watches them tick. When one render covers several notes, a note is
+   "done" once its change is made in the project or the edit list; the render and the check come after (step 5).
    - `task_progress` with its `note_id`, `state: "working"` and a few first-person words: "Changing the logo colour in
      scene-logo.js".
    - A note that points at something ("this", "here", "that logo") or has a drawing: `get_frame` with its `note_id` first.
