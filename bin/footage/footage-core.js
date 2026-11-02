@@ -367,7 +367,7 @@ export const SAME_LOOK = 30;
 /** A jump cut on similar framing (scene score under BIG_SHOT) is a flash only when shorter than FLASH_SMALL_S: a whole second
  *  rule moved pictures by up to 1.6 s at ordinary jump cuts, mouths out of step with words (2 Nov 2026). A change to a graphic,
  *  a wide shot or a split screen keeps FLASH_S. No score known: treated as a big change. */
-export const BIG_SHOT = 0.25, FLASH_SMALL_S = 0.5;
+export const BIG_SHOT = 0.1, FLASH_SMALL_S = 0.5; // 0.25 let through a side angle (0.13, hulse 4:08) and a wider framing (0.20, cavetown 0:09) Seth saw as flashes
 const flashFor = (info, s) => ((info?.shotScore?.[s] ?? 1) >= BIG_SHOT ? FLASH_S : FLASH_SMALL_S);
 /** A stray stretch this short (frames) at a picture edge is covered by holding the clean frame beside it: 3 held frames are
  *  invisible, where moving the join would drag the other side into its own neighbouring shot (cavetown 0:09, 2 Nov 2026). */

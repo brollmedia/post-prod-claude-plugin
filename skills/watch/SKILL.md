@@ -77,7 +77,7 @@ your changes stay in their project, as an editor's would.
 
 ### Footage (no project)
 
-`get_download` with `what: "video"` gives the exact uploaded file. If it says only the playback copy can be had, say so in
+Every job brief hands you the exact uploaded file as a ready command (it saves to `post-prod-folder/video/`): run it first. Otherwise `get_download` with `what: "video"` gives the exact uploaded file. If it says only the playback copy can be had, say so in
 your reply. Work in a new temporary folder; never touch the original. Use ffmpeg for the change (grade, black and white
 from a time, crops and keyframed zooms, speed, captions burned in, audio fixes), matching the source's resolution,
 frame rate and codec family, high quality (for H.264: `-crf 16 -preset slow`, audio copied when you did not touch it).
