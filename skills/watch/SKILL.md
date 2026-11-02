@@ -118,7 +118,7 @@ missing, `ask_person` to install ffmpeg and stop the task). Each command prints 
    before, ms is how early: a new thought or a reply), `l` (the picture changes while the voice before finishes: a
    reaction), `crossfade` (sound blended longer, for a change of room tone), `dissolve` (picture and sound blended: time has
    passed), `dip` (through black: a new chapter). Talking heads are mostly hard cuts with a few J cuts; use dissolves and
-   dips rarely and say why. `from` is the version you started from (its length and number) for the room's report.
+   dips rarely and say why. `from` is the version you started from (its length and number) for the room's report. A section from another recording (a pickup, a new take filmed later) is just another source: the engine brings its voice to the level of the first clip; its picture is not colour-matched, so look at a frame either side and say so if it jumps.
 4. **Plan, then render.** `plan <edit-list.json>` first. Each `MID_SENTENCE` problem is a cut that skips words of a sentence
    that is heard: move that edge to the sentence's start or end (the problem says which), or, only when the person asked for
    exactly that cut, set `"allow_mid_sentence": true`. Then `render <edit-list.json>`. It refuses while problems remain.

@@ -182,9 +182,19 @@ const norm = (s) => s.toLowerCase().replace(/[^a-z0-9']/g, '');
 
 /**
  * Sentence breaks at one join: the words a jump SKIPS of a sentence that is heard on that side (Retti's scorecard rule, 7 Oct:
- * a side counts only the words its jump skips, and only when some of that sentence is heard). Skipped fillers are not a break,
- * nor a restart: skipped words that are said again within the next 12 played words. -> [{ side, src, sentence, skipped }].
+ * a side counts only the words its jump skips, and only when some of that sentence is heard). Not a break: skipped fillers
+ * ("um", or a whole "you know", "I mean"), and a restart (Retti's rule, 4 Oct: the skipped run is said again right after the
+ * jump, in order; only its last word may be cut off or differ). 2 Nov 2026, the bench: "any skipped word recurs in the next 12"
+ * let "to", "a", "the" through and passed 30 heard breaks. -> [{ side, src, sentence, skipped }].
  */
+export const SOFT_FILLERS = new Set(['you know', 'i mean', 'kind of', 'sort of', 'like', 'so', 'well', 'basically', 'actually', 'literally', 'okay', 'ok', 'right', 'you know what i mean']);
+/** Whether skipped tokens are a restart of what plays right after: all but the last said again, in order, from the first or second word. */
+export function isRestart(skipped, played) {
+  if (!skipped.length) return false;
+  const need = skipped.length === 1 ? skipped : skipped.slice(0, -1);
+  return [0, 1].some((k) => need.every((t, i) => played[k + i] === t));
+}
+const softOnly = (ws) => SOFT_FILLERS.has(ws.map((x) => norm(x.word)).join(' '));
 export function joinBreaks(prev, next, wordsOf) {
   const out = [];
   const wa = wordsOf(prev.src), wb = wordsOf(next.src);
@@ -196,7 +206,7 @@ export function joinBreaks(prev, next, wordsOf) {
     if (last) {
       const rest = wa.filter((x) => x.s === last.s && x.start >= prev.out - 0.02 && !heard.includes(x));
       const skipped = rest.filter((x) => !x.filler && !(prev.src === next.src && x.start >= next.in));
-      const restart = skipped.length && skipped.every((x) => playedB.includes(norm(x.word)));
+      const restart = isRestart(skipped.map((x) => norm(x.word)), playedB) || softOnly(skipped);
       if (skipped.length && !restart) out.push({ side: 'out', src: prev.src, sentence: last.s, skipped: skipped.map((x) => x.word).join(' '), at: r3(prev.out) });
     }
   }
@@ -206,7 +216,7 @@ export function joinBreaks(prev, next, wordsOf) {
       const before = wb.filter((x) => x.s === first.s && x.end <= next.in + 0.02 && !heard.includes(x));
       const skipped = before.filter((x) => !x.filler && !(prev.src === next.src && x.end <= prev.out));
       // a restart: the skipped opening is said again right after ("so we're going to- so we're going to")
-      const restart = skipped.length && skipped.every((x) => playedB.includes(norm(x.word)));
+      const restart = isRestart(skipped.map((x) => norm(x.word)), playedB) || softOnly(skipped);
       if (skipped.length && !restart) out.push({ side: 'in', src: next.src, sentence: first.s, skipped: skipped.map((x) => x.word).join(' '), at: r3(next.in) });
     }
   }

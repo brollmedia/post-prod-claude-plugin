@@ -163,7 +163,7 @@ export function mixSound(segs, total, out, joinsAt = []) {
       for (let j = 0; j < n; j++) {
         const si = srcI + j;
         if (si < lo || si >= hi) continue;
-        const g = gainAt(i + j, s), o = (s.at + i + j - carryAt) * CH, b = (si - lo) * CH;
+        const g = gainAt(i + j, s) * (seg.gain || 1), o = (s.at + i + j - carryAt) * CH, b = (si - lo) * CH;
         carry[o] += view[b] * g; carry[o + 1] += view[b + 1] * g;
       }
     }
@@ -172,6 +172,47 @@ export function mixSound(segs, total, out, joinsAt = []) {
   ensure(total); flush(total);
   fs.closeSync(fd);
   return seamLevels(out, total, joinsAt);
+}
+
+export const LEVEL = { MAX_GAIN_DB: 12, CEILING_DB: -1, ACTIVE_DB: -45, TOLERANCE_DB: 1 };
+/** Speech level of raw s16le stereo files: the mean power of their 50 ms windows above ACTIVE_DB (pauses left out), and the
+ *  peak. -> { db, peak_db } or null when nothing is above the line. */
+export function speechLevel(files) {
+  const W = Math.round(0.05 * RATE) * 2;
+  let sum = 0, n = 0, peak = 0;
+  for (const f of files) {
+    const buf = fs.readFileSync(f), v = new Int16Array(buf.buffer, buf.byteOffset, buf.length >> 1);
+    for (let a = 0; a + W <= v.length; a += W) {
+      let p = 0;
+      for (let i = a; i < a + W; i++) { const x = v[i]; p += x * x; if (Math.abs(x) > peak) peak = Math.abs(x); }
+      p /= W;
+      if (10 * Math.log10(p / 32768 ** 2 + 1e-12) > LEVEL.ACTIVE_DB) { sum += p; n++; }
+    }
+  }
+  if (!n) return null;
+  return { db: 10 * Math.log10(sum / n / 32768 ** 2), peak_db: 20 * Math.log10(peak / 32768 + 1e-12) };
+}
+/** Sets seg.gain (linear) on every segment of a source whose speech sits away from the first clip's source; returns what was
+ *  measured and done per source. One source: nothing to match. A gain never lifts a source's peak over CEILING_DB. */
+export function matchLevels(segs) {
+  const srcs = [...new Set(segs.map((s) => s.src))];
+  if (srcs.length < 2) return null;
+  const out = {};
+  for (const id of srcs) out[id] = speechLevel(segs.filter((s) => s.src === id && s.file).map((s) => s.file.file));
+  const ref = out[segs[0].src];
+  if (!ref) return null;
+  for (const id of srcs) {
+    const m = out[id];
+    if (!m || id === segs[0].src) { if (m) m.gain_db = 0; continue; }
+    let g = ref.db - m.db;
+    if (Math.abs(g) < LEVEL.TOLERANCE_DB) g = 0;
+    g = Math.max(-LEVEL.MAX_GAIN_DB, Math.min(LEVEL.MAX_GAIN_DB, g));
+    if (g > 0) g = Math.min(g, Math.max(0, LEVEL.CEILING_DB - m.peak_db));
+    m.gain_db = Math.round(g * 10) / 10;
+    for (const s of segs) if (s.src === id) s.gain = 10 ** (g / 20);
+  }
+  for (const id of srcs) if (out[id]) { out[id].db = Math.round(out[id].db * 10) / 10; out[id].peak_db = Math.round(out[id].peak_db * 10) / 10; }
+  return out;
 }
 
 /** Loudness (RMS dBFS) 300 ms either side of every join, read back from the mixed sound: a seam that jumps in level shows. */
@@ -248,6 +289,9 @@ export async function renderPlan(plan, { srcPath, infos, dir, out, log = () => {
     log(`sound ${k + 1}/${plan.audio.length}`);
     segs.push({ ...seg, file: await extractSound(seg, { srcPath, info: infos[seg.src], out: path.join(dir, `a${String(k).padStart(4, '0')}.pcm`) }) });
   }
+  // a new section recorded apart (another day, another mic) sits at the level of the rest: each source's speech level is
+  // measured on the stretches it plays and brought to the first clip's, one straight gain per source (assemble's rule)
+  plan.levels = matchLevels(segs);
   const total = Math.round((plan.frames / plan.fps) * RATE), mix = path.join(dir, 'mix.pcm');
   plan.seam_levels = mixSound(segs, total, mix, plan.joins.map((j) => j.at));
   for (const s of segs) if (s.file) fs.rmSync(s.file.file, { force: true });
@@ -415,6 +459,8 @@ export function reportLines({ plan, report, mode = null, reason = null, window =
     lines.push(report.black.length ? `Black on screen: ${report.black.map((b) => `${clock(b.from)}-${clock(b.to)}`).join(', ')}.` : 'No black frames.');
     if (report.loud_steps.length) lines.push(`Level jumps at seams: ${report.loud_steps.map((s) => `${clock(s.t)} ${s.step_db > 0 ? '+' : ''}${s.step_db} dB`).join(', ')}.`);
   }
+  const lv = Object.entries(plan?.levels || {}).filter(([, m]) => m && m.gain_db);
+  if (lv.length) lines.push(`Levels matched to the first clip: ${lv.map(([id, m]) => `${id} ${m.gain_db > 0 ? '+' : ''}${m.gain_db} dB`).join(', ')}.`);
   for (const w of plan?.warnings || []) lines.push(`Note: ${w.message}`);
   for (const c of plan?.cues || []) lines.push(`Retention cue at ${clock(c.at)}: ${c.words} ("${c.said.slice(0, 60)}"). In Retti's data viewers leave more in the ~22 s after one (${c.lift}x, correlation only).`);
   return lines;
