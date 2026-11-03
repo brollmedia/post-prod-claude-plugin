@@ -49,7 +49,8 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true` and your model name in `model` (and `for_team` in team mode). Do not pass
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.4.12"` (this plugin's version: post-prod.io says when it is out of date)
+and your model name in `model` (and `for_team` in team mode). Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
 - **`{"idle":true,"next":"wait"}`**: nothing happened. Call `wait_for_feedback` again at once. Write nothing at all: no
@@ -276,3 +277,10 @@ A `wait_for_feedback` answer that starts `PLUGIN_OUTDATED:` means this post-prod
 away without asking: run the line it gives (`claude plugin marketplace update post-prod && claude plugin update post-prod@post-prod`)
 with your Bash tool, tell the person in one line that it was updated and that a restart of Claude Code (or /reload-plugins) loads it,
 then carry on watching.
+
+## Timing graphics and on-screen text
+
+A note's time is where the person was when they asked, often partway through the stretch the graphic belongs to. Before placing
+a graphic or text, read `get_transcript` around the note (look back first, then on) and find the words that give the graphic its reason: the
+line it shows, explains or puts in context. Bring it in on those words (never at 0:00 or the scene's start just because the note
+is early), out when the talk moves on, and say which words you timed it to.
