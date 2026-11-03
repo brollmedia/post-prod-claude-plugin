@@ -3,7 +3,7 @@ name: watch
 description: Watch post-prod.io in the background and make the person's review notes into real changes to the video the moment they post them in the review room (Talk through it, typed notes sent to Claude, or a message in the room's Edit with Claude chat). Edits the video's source project when it is made from one (code, an editing project), else the footage itself with ffmpeg, and uploads the result as the next version. Runs as a quiet loop until stopped. Use when the user runs /post-prod:watch, or asks Claude to watch post-prod, keep an eye on their review, or make their notes as they come in.
 when_to_use: Phrases like watch post-prod, watch my review, make my notes as I post them, keep watching, Edit with Claude. Needs the post-prod MCP server connected (a paid post-prod.io plan).
 model: opus
-allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*)
+allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
 ---
 
 # Edit with Claude
@@ -49,7 +49,7 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.4.13"` (this plugin's version: post-prod.io says when it is out of date)
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.4.14"` (this plugin's version: post-prod.io says when it is out of date)
 and your model name in `model` (and `for_team` in team mode). Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
@@ -88,10 +88,13 @@ your changes stay in their project, as an editor's would.
 ### Footage (no project)
 
 Every job brief hands you the exact uploaded file as a ready command (it saves to `post-prod-folder/video/`): run it first. Otherwise `get_download` with `what: "video"` gives the exact uploaded file. If it says only the playback copy can be had, say so in
-your reply. Work in a new temporary folder; never touch the original. Use ffmpeg for the change (grade, black and white
+your reply. Work in a folder of its own, `post-prod-folder/work/V<the new number>/`; never touch the original. Use ffmpeg for the change (grade, black and white
 from a time, crops and keyframed zooms, speed, captions burned in, audio fixes), matching the source's resolution,
 frame rate and codec family, high quality (for H.264: `-crf 16 -preset slow`, audio copied when you did not touch it).
-Delete the temporary folder after the upload.
+Keep that folder (3 Nov 2026: deleting it lost the graphics, so the next round rebuilt them and they drifted). After the upload,
+zip it without the rendered videos (`npx post-prod-mcp zip <folder>`) and `attach_working_files` to the new version, so the next
+round reads the last version's graphic sources (get_version_context lists them) and changes them instead of starting again. Say in
+your summary which folder the files are in.
 
 ### Cutting footage: talking heads, vlogs, YouTube videos
 
@@ -106,10 +109,10 @@ If the footage tools (`get_words`, `find_takes`, `get_section`, `upload_section`
 they are not open on this workspace yet: make simple cuts with ffmpeg as above, at pauses, and say so in your reply.
 
 Finding ffmpeg (seconds, never minutes): run `ffmpeg -version`. If it is not found, look in these places only, in this order:
-- Windows after a winget install: `%LOCALAPPDATA%MicrosoftWinGetLinksfmpeg.exe`. A shell opened before the install has no PATH
+- Windows after a winget install: `$LOCALAPPDATA/Microsoft/WinGet/Links/ffmpeg.exe` (in PowerShell `$env:LOCALAPPDATA/Microsoft/WinGet/Links/ffmpeg.exe`). A shell opened before the install has no PATH
   entry for it yet.
 - `where ffmpeg` on Windows, `command -v ffmpeg` elsewhere.
-- `/opt/homebrew/bin`, `/usr/local/bin`, `C:fmpegin`.
+- `/opt/homebrew/bin`, `/usr/local/bin`, `C:/ffmpeg/bin`.
 Never search the disk recursively for it (Get-ChildItem -Recurse, find /): that takes minutes while the person waits. Once found,
 use its full path (or put its folder on PATH for the session) for the rest of the loop. If it is in none of those places, `ask_person`
 to install it.
@@ -125,7 +128,7 @@ missing, `ask_person` to install ffmpeg and stop the task). Each command prints 
    line with more than one whole take, `ask_person` with that group's `choices` exactly as given (the room shows each take as
    a card with a frame and your pick marked) and use the one the person picks. Never choose between whole takes yourself.
    The order of sections is the story: if it is not clear from the brief or the notes, ask.
-3. **The edit list**, a JSON file in your temporary folder:
+3. **The edit list**, a JSON file in your working folder:
    ```json
    { "sources": { "a": { "path": "A001.mp4", "words": "A001.words.json" }, "b": { "path": "A002.mp4", "words": "A002.words.json" } },
      "clips": [ { "src": "a", "in": 12.4, "out": 41.9, "why": "intro, take 2" },
@@ -283,13 +286,16 @@ pacing, easing, camera moves, music level and sound, applied to the real project
 ## When the plugin is out of date
 
 A `wait_for_feedback` answer that starts `PLUGIN_OUTDATED:` means this post-prod plugin is older than the newest. Update it straight
-away without asking: run the line it gives (`claude plugin marketplace update post-prod && claude plugin update post-prod@post-prod`)
-with your Bash tool, tell the person in one line that it was updated and that a restart of Claude Code (or /reload-plugins) loads it,
+away without asking: run its two commands as two separate Bash calls (`claude plugin marketplace update post-prod`, then
+`claude plugin update post-prod@post-prod`; never chained with `&&`, which asks the person), tell the person in one line that it was updated and that a restart of Claude Code (or /reload-plugins) loads it,
 then carry on watching.
 
 ## Timing graphics and on-screen text
 
-A note's time is where the person was when they asked, often partway through the stretch the graphic belongs to. Before placing
+Never place a graphic at a note's time. A talked-through note is stamped where the take paused, usually seconds after the words
+it is about; a typed note is where the person was when they asked. Before placing
 a graphic or text, read `get_transcript` around the note (look back first, then on) and find the words that give the graphic its reason: the
 line it shows, explains or puts in context. Bring it in on those words (never at 0:00 or the scene's start just because the note
-is early), out when the talk moves on, and say which words you timed it to.
+is early; use the transcript's word times), out when the talk moves on. Before rendering, post a `task_progress` note naming the
+words and time you chose ("Grid in on 'not every block is valued the same' at 0:03.0"), so it shows on their job card, and say it
+again in your summary.
