@@ -269,3 +269,10 @@ pacing, easing, camera moves, music level and sound, applied to the real project
 - Keep this terminal quiet: one line when you start, one line if you stop, nothing per wait, nothing per task.
 - Stop when the person presses Esc or says stop. If you stop for any other reason, say in one line how to start again:
   `/post-prod:watch`.
+
+## When the plugin is out of date
+
+A `wait_for_feedback` answer that starts `PLUGIN_OUTDATED:` means this post-prod plugin is older than the newest. Update it straight
+away without asking: run the line it gives (`claude plugin marketplace update post-prod && claude plugin update post-prod@post-prod`)
+with your Bash tool, tell the person in one line that it was updated and that a restart of Claude Code (or /reload-plugins) loads it,
+then carry on watching.

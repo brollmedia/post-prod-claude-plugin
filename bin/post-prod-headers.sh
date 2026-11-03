@@ -13,7 +13,15 @@ if [ -z "$k" ] && [ -f "$f" ]; then k=$(tr -d ' \r\n\t' < "$f"); fi
 case "$k" in
   *[!A-Za-z0-9_]*) k="" ;;
 esac
+# its version (3 Nov 2026): the room and the watch loop say when the plugin is out of date (server/plugin-version.js)
+root="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/..}"
+v=$(sed -n 's/.*"version"[^"]*"\([0-9][0-9.]*\)".*/\1/p' "$root/.claude-plugin/plugin.json" 2>/dev/null | head -n 1)
+case "$v" in
+  *[!0-9.]*|'') v="" ;;
+esac
+vh=""
+[ -n "$v" ] && vh=$(printf '"X-Post-Prod-Plugin":"%s"' "$v")
 case "$k" in
-  cr_live_*|cr_test_*) printf '{"Authorization":"Bearer %s"}\n' "$k" ;;
-  *) printf '{}\n' ;;
+  cr_live_*|cr_test_*) if [ -n "$vh" ]; then printf '{"Authorization":"Bearer %s",%s}\n' "$k" "$vh"; else printf '{"Authorization":"Bearer %s"}\n' "$k"; fi ;;
+  *) if [ -n "$vh" ]; then printf '{%s}\n' "$vh"; else printf '{}\n'; fi ;;
 esac
