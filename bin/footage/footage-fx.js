@@ -102,7 +102,17 @@ export function subtitleLines(words, from, to, offset = 0) {
 
 /** The filter graph for cleaned layers on a W×H picture. inputs: extra input files in order (graphics). -> { graph, inputs, texts }
  *  texts: [{ file, text }] the caller writes (drawtext reads them from files, so no text needs escaping). */
-export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, dir }) {
+// How text looks (3 Nov 2026, Seth: "flexible, because the graphic we make will be for all different styles/niches ... if things
+// AREN'T specified ... we dont default back to slop"): whatever the spec's style says wins (any font, colour, accent, a box or not).
+// With nothing said, no half-black box behind the words (white system bold on a box was the template look every video got): a
+// soft edge and a shadow give the contrast instead. -> { color, accent, box }
+export function styleOf(spec = {}) {
+  const st = spec && typeof spec.style === 'object' && spec.style ? spec.style : {};
+  const colour = (c, d) => { let v = String(c ?? '').trim(); if (/^#[0-9a-f]{3}$/i.test(v)) v = `#${[...v.slice(1)].map((x) => x + x).join('')}`; return /^(#[0-9a-f]{6}|0x[0-9a-f]{6}|[a-z]{3,20})$/i.test(v) ? v.replace(/^#/, '0x') : d; };
+  const box = st.box === true ? 0.55 : Number.isFinite(+st.box) && +st.box > 0 && +st.box <= 1 ? +st.box : 0;
+  return { color: colour(st.color, 'white'), fixedColor: colour(st.color, null) != null, accent: colour(st.accent, null), box };
+}
+export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, dir, style = styleOf() }) {
   const parts = [], inputs = [], texts = [];
   let cur = '[0:v]', n = 0;
   const next = () => `[v${++n}]`;
@@ -110,7 +120,15 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
   const fade = (a, b, f = 0.25) => `if(lt(t,${num(a + f)}),(t-${num(a)})/${num(f)},if(gt(t,${num(b - f)}),(${num(b)}-t)/${num(f)},1))`;
   const fontArg = font ? `fontfile='${fpath(font)}':` : '';
   const text = (s) => { const f = path.join(dir, `t${texts.length}.txt`); texts.push({ file: f, text: s }); return `textfile='${fpath(f)}'`; };
-  const draw = (s, { x, y, size, a, b, color = 'white', box = 0.55, alpha = null }) => `drawtext=${fontArg}${text(s)}:fontsize=${Math.round(size)}:fontcolor=${color}:x=${x}:y=${y}:box=1:boxcolor=black@${box}:boxborderw=${Math.round(size * 0.45)}:alpha='${alpha || fade(a, b)}':enable='between(t,${num(a)},${num(b)})'`;
+  // the words read on the picture behind them (each layer's ink, measured from its frames by applyEffects; 3 Nov 2026: white words
+  // with an outline looked like a meme on a bright frame and vanished on white): dark ink on a bright picture, white with a light
+  // shadow on a dark one, a faint bar only on a busy middle. A box or colour in the spec's style wins over all of it.
+  const inkColour = (ink) => (style.fixedColor ? style.color : ink === 'dark' ? '0x161616' : style.color);
+  const look = (size, box, ink) => (style.box > 0 ? `box=1:boxcolor=black@${Math.min(1, box ?? style.box)}:boxborderw=${Math.round(size * 0.45)}`
+    : ink === 'mid' && !style.fixedColor ? `box=1:boxcolor=black@0.32:boxborderw=${Math.round(size * 0.35)}`
+      : ink === 'dark' && !style.fixedColor ? 'shadowcolor=white@0.25:shadowx=0:shadowy=1'
+        : `shadowcolor=black@0.5:shadowx=0:shadowy=${Math.max(1, Math.round(size * 0.04))}`);
+  const draw = (s, { x, y, size, a, b, ink = 'light', color = inkColour(ink), box = null, alpha = null }) => `drawtext=${fontArg}${text(s)}:fontsize=${Math.round(size)}:fontcolor=${color}:x=${x}:y=${y}:${look(size, box, ink)}:alpha='${alpha || fade(a, b)}':enable='between(t,${num(a)},${num(b)})'`;
   // 1) the picture itself: zooms, then blurs (a blur follows the zoomed picture, as the viewer sees it)
   for (const l of layers.filter((x) => x.type === 'zoom')) {
     const [ax, ay, aw, ah] = l.area, Z = Math.min(1 / aw, 1 / ah, 4), cx = ax + aw / 2, cy = ay + ah / 2, p = ease(l.from, l.to, l.ease);
@@ -152,8 +170,8 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
     const xOf = l.position === 'lower-third' || l.position === 'left' ? `${Math.round(110 * S)}` : l.position === 'right' ? `w-text_w-${Math.round(110 * S)}` : '(w-text_w)/2';
     const maxW = (l.position === 'center' || l.position === 'top' || l.position === 'bottom' ? 0.9 : 0.6) * W;
     const t = fitText(l.text, size, maxW), u = l.sub ? fitText(l.sub, sub, maxW) : null;
-    drawn.push(draw(t.text, { x: xOf, y: yOf, size: t.size, a: l.from, b: l.to }));
-    if (u) drawn.push(draw(u.text, { x: xOf, y: `${yOf}+${Math.round(t.size * (1.25 * t.lines + 0.35))}`, size: u.size, a: l.from + 0.15, b: l.to, box: 0.45 }));
+    drawn.push(draw(t.text, { x: xOf, y: yOf, size: t.size, a: l.from, b: l.to, ink: l.ink }));
+    if (u) drawn.push(draw(u.text, { x: xOf, y: `${yOf}+${Math.round(t.size * (1.25 * t.lines + 0.35))}`, size: u.size, a: l.from + 0.15, b: l.to, box: 0.45, ink: l.ink }));
   }
   for (const l of layers.filter((x) => x.type === 'checklist')) {
     // placed by its area when given (the right-hand column covered a face, 2 Nov 2026): rows shrink to fit its height
@@ -162,22 +180,52 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
     const x0 = A ? Math.round(A[0] * W) : l.position === 'right' ? Math.round(W * 0.56) : Math.round(110 * S);
     const y0 = A ? Math.round(A[1] * H) : Math.round(H / 2 - (rows * gap) / 2);
     let row = 0;
-    if (l.title) { drawn.push(draw(l.title, { x: `${x0}`, y: `${y0}`, size: size * 1.15, a: l.from, b: l.to })); row = 1; }
+    if (l.title) { drawn.push(draw(l.title, { x: `${x0}`, y: `${y0}`, size: size * 1.15, a: l.from, b: l.to, ink: l.ink })); row = 1; }
     l.items.forEach((it, i) => {
       const y = y0 + (row + i) * gap, box = Math.round(size * 0.9), bx = x0, by = y + Math.round((size - box) / 2) + Math.round(size * 0.05);
       const shown = `between(t,${num(l.at[i])},${num(l.to)})`, ticked = `between(t,${num(Math.min(l.to, l.at[i] + 0.5))},${num(l.to)})`;
-      drawn.push(`drawbox=x=${bx}:y=${by}:w=${box}:h=${box}:color=white@0.95:t=${Math.max(2, Math.round(size * 0.08))}:enable='${shown}'`);
-      drawn.push(`drawbox=x=${bx + Math.round(box * 0.2)}:y=${by + Math.round(box * 0.2)}:w=${Math.round(box * 0.6)}:h=${Math.round(box * 0.6)}:color=0x3DDC84@1:t=fill:enable='${ticked}'`);
-      drawn.push(draw(it, { x: `${bx + Math.round(box * 1.5)}`, y: `${y}`, size: fitText(it, size, A ? A[2] * W - box * 1.6 : W * 0.42).size, a: l.at[i], b: l.to, box: 0.5 }));
+      drawn.push(`drawbox=x=${bx}:y=${by}:w=${box}:h=${box}:color=${inkColour(l.ink)}@0.95:t=${Math.max(2, Math.round(size * 0.08))}:enable='${shown}'`);
+      drawn.push(`drawbox=x=${bx + Math.round(box * 0.2)}:y=${by + Math.round(box * 0.2)}:w=${Math.round(box * 0.6)}:h=${Math.round(box * 0.6)}:color=${style.accent || inkColour(l.ink)}@1:t=fill:enable='${ticked}'`); // the accent, else the words' own colour
+      drawn.push(draw(it, { x: `${bx + Math.round(box * 1.5)}`, y: `${y}`, size: fitText(it, size, A ? A[2] * W - box * 1.6 : W * 0.42).size, a: l.at[i], b: l.to, box: 0.5, ink: l.ink }));
     });
   }
   for (const l of layers.filter((x) => x.type === 'subtitles')) {
     const words = wordsOf(l);
     if (!words?.length) throw err('NO_WORDS', 'Subtitles need the words: give "words" (the .words.json from get_words) and, for a section, "words_from" (where the section starts in that file).');
-    for (const s of subtitleLines(words, l.from, l.to)) drawn.push(draw(s.text, { x: '(w-text_w)/2', y: `h-text_h-${Math.round(90 * S)}`, size: fitText(s.text, 54 * S, W * 0.9).size, a: s.t, b: s.e, box: 0.6, alpha: '1' }));
+    for (const s of subtitleLines(words, l.from, l.to)) drawn.push(draw(s.text, { x: '(w-text_w)/2', y: `h-text_h-${Math.round(90 * S)}`, size: fitText(s.text, 54 * S, W * 0.9).size, a: s.t, b: s.e, box: 0.6, alpha: '1', ink: l.ink }));
   }
   if (drawn.length) { const o = next(); parts.push(`${cur}${drawn.join(',')}${o}`); cur = o; }
   return { graph: parts.length ? parts.join(';') : null, out: cur, inputs, texts };
+}
+
+// where each kind of text sits, as fractions of the frame [x, y, w, h], for reading the picture behind it
+function textArea(l) {
+  if (l.type === 'subtitles') return [0.1, 0.8, 0.8, 0.14];
+  if (l.type === 'checklist') return l.area || (l.position === 'right' ? [0.56, 0.25, 0.4, 0.5] : [0.05, 0.25, 0.4, 0.5]);
+  return { top: [0.1, 0.05, 0.8, 0.2], center: [0.15, 0.35, 0.7, 0.3], bottom: [0.1, 0.72, 0.8, 0.2], 'lower-third': [0.05, 0.6, 0.55, 0.26], left: [0.05, 0.35, 0.55, 0.3], right: [0.45, 0.35, 0.5, 0.3] }[l.position] || [0.1, 0.35, 0.8, 0.3];
+}
+/** A tiny grey frame at t (64x36), or null. */
+function grayFrame(input, t) {
+  return new Promise((res) => {
+    let p; try { p = spawn(FF, ['-hide_banner', '-loglevel', 'error', '-ss', num(Math.max(0, t)), '-i', input, '-frames:v', '1', '-vf', 'scale=64:36,format=gray', '-f', 'rawvideo', '-'], { windowsHide: true }); } catch (e) { res(null); return; }
+    const parts = []; p.stdout.on('data', (d) => parts.push(d)); p.on('error', () => res(null)); p.on('close', () => { const b = Buffer.concat(parts); res(b.length >= 64 * 36 ? b : null); });
+  });
+}
+/** Each text layer's ink from the picture behind its words (two frames: its start and its middle): 'dark' on a bright picture,
+ *  'light' on a dark one, 'mid' on a busy middle. A frame that cannot be read leaves the layer light (white with a shadow). */
+export async function inkOf(input, layers) {
+  for (const l of layers.filter((x) => x.type === 'title' || x.type === 'checklist' || x.type === 'subtitles')) {
+    const [ax, ay, aw, ah] = textArea(l), vals = [];
+    for (const t of [l.from + 0.2, (l.from + l.to) / 2]) {
+      const b = await grayFrame(input, t); if (!b) continue;
+      let sum = 0, n = 0;
+      for (let y = Math.floor(ay * 36); y < Math.min(36, Math.ceil((ay + ah) * 36)); y++) for (let x = Math.floor(ax * 64); x < Math.min(64, Math.ceil((ax + aw) * 64)); x++) { sum += b[y * 64 + x]; n++; }
+      if (n) vals.push(sum / n / 255);
+    }
+    const lum = vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : 0;
+    l.ink = !vals.length ? 'light' : lum > 0.62 ? 'dark' : lum < 0.42 ? 'light' : 'mid';
+  }
+  return layers;
 }
 
 /** Apply an effect list. spec: { input, output, layers: [...], words?, words_from? }. -> { file, layers, check } */
@@ -200,7 +248,15 @@ export async function applyEffects(spec, { base = process.cwd(), quality = 'high
   };
   try {
     const W = even(info.width), H = even(info.height), fps = info.fps || 30;
-    const g = fxGraph(layers, { W, H, fps, font: findFont(spec.font), wordsOf, dir });
+    await inkOf(input, layers);
+    const askedRaw = (spec.style && spec.style.font) || spec.font || null, asked = askedRaw ? path.resolve(base, askedRaw) : null; // beside the effect list, like its graphics
+    const g = fxGraph(layers, { W, H, fps, font: findFont(asked), wordsOf, dir, style: styleOf(spec) });
+    // a failsafe, not a rule: text drawn in the computer's system bold because nobody chose a face is the template look
+    const warnings = [];
+    if (layers.some((l) => l.type === 'title' || l.type === 'checklist' || l.type === 'subtitles')) {
+      if (!asked) warnings.push('No font chosen: the text is in the computer\'s system bold. Pick a face that fits this video (theirs from the folder first, or a free one from Google Fonts) and give it as style.font, unless they asked for plain.');
+      else if (!fs.existsSync(asked)) warnings.push(`The font ${askedRaw} was not found, so the system bold was used. Check the path.`);
+    }
     for (const t of g.texts) fs.writeFileSync(t.file, t.text, 'utf8');
     const script = path.join(dir, 'graph.txt');
     fs.writeFileSync(script, g.graph);
@@ -210,7 +266,7 @@ export async function applyEffects(spec, { base = process.cwd(), quality = 'high
     await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, ...g.inputs.flat(), '-filter_complex_script', script, '-map', g.out, '-map', '0:a?', '-c:a', 'copy',
       '-c:v', 'libx264', '-preset', quality === 'draft' ? 'veryfast' : 'medium', '-crf', crf, '-pix_fmt', 'yuv420p', '-r', num(fps), '-movflags', '+faststart', out]);
     const got = await probe(out);
-    return { file: out, layers: layers.map((l) => ({ type: l.type, from: l.from, to: l.to })), length_s: got.duration, input_length_s: info.duration };
+    return { file: out, layers: layers.map((l) => ({ type: l.type, from: l.from, to: l.to })), length_s: got.duration, input_length_s: info.duration, warnings };
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -278,6 +334,26 @@ async function cdp(wsUrl) {
  * An HTML page (a file) recorded to video: W×H, fps, seconds long. alpha: a transparent page background stays transparent
  * (a .mov with an alpha channel, for a graphic over the picture); otherwise an H.264 .mp4. -> { file, frames, length_s }
  */
+/** The defaults that read as AI-made, found in a graphic's page (pure; 3 Nov 2026): a failsafe for when nobody said how it should
+ *  look, never a ban (a gaming channel may want neon). -> [plain-words warning] */
+export function slopCheck(src) {
+  const s = String(src || '').replace(/<script[\s\S]*?<\/script>/gi, (m) => m.replace(/\/\/[^\n]*/g, '')), out = [];
+  const firstFace = (v) => v.split(',')[0].replace(/["']/g, '').trim().toLowerCase();
+  const faces = [...s.matchAll(/font-family\s*:\s*([^;}{]+)/gi)].map((m) => firstFace(m[1]))
+    .concat([...s.matchAll(/(?:^|[;{\s])font\s*:\s*[^;}{]*?\d+(?:\.\d+)?(?:px|em|rem|pt|%)(?:\s*\/\s*[\d.]+\w*)?\s+([^;}{]+)/gi)].map((m) => firstFace(m[1])));
+  const DEFAULT = /^(inter|geist|arial|helvetica|helvetica neue|roboto|segoe ui|system-ui|-apple-system|blinkmacsystemfont|sans-serif|serif|ui-sans-serif|open sans|montserrat|poppins)$/;
+  const shown = /<(h[1-6]|p|span|div|li|text)[^>]*>\s*[^<\s]/i.test(s);
+  if (faces.some((f) => DEFAULT.test(f)) || (shown && !faces.length)) out.push('A default face (Inter, Arial, Poppins, the system font). Pick one that fits this video and niche, or theirs.');
+  if (/background-clip\s*:\s*text/i.test(s)) out.push('Gradient-filled text. A solid colour reads as designed; size or weight carries the emphasis.');
+  const PURPLE = /#(8b5cf6|7c3aed|6d28d9|a855f7|9333ea|6366f1|4f46e5|818cf8|c084fc|a78bfa)\b|\b(purple|violet|indigo|blueviolet|mediumpurple|rebeccapurple)\b/i;
+  if ([...s.matchAll(/gradient\(([^;]*?)\)\s*[;}"']/gi)].some((m) => PURPLE.test(m[1]))) out.push('A purple/violet gradient, the most common AI look. Take the colours from the video itself.');
+  if (/\p{Extended_Pictographic}/u.test(s.replace(/<script[\s\S]*?<\/script>/gi, ''))) out.push('Emoji in the graphic (sparkles, rockets, fire). Show the real thing, or nothing.');
+  const over = [...s.matchAll(/cubic-bezier\(([^)]*)\)/gi)].some((m) => { const v = m[1].split(',').map(Number); return v[1] > 1 || v[3] > 1 || v[1] < 0 || v[3] < 0; });
+  if (over || /\b(bounce|elastic|easeOutBack|easeInOutBack|easeOutElastic|back\.out|elastic\.out|wiggle)\b/i.test(s)) out.push('Bounce, elastic or overshoot easing. Ease out and settle in 200-400 ms.');
+  if ([...s.matchAll(/(text-shadow|box-shadow|drop-shadow)\s*[:(]([^;]*)/gi)].some((m) => /\b([2-9]\d|\d{3,})px/.test(m[2]) && /(#[0-9a-f]{3,8}|rgba?\(|hsla?\()/i.test(m[2]) && !/rgba?\(\s*0\s*,\s*0\s*,\s*0|#000\b|#0{6}\b/i.test(m[2]))) out.push('A coloured glow. Contrast from the frame or a plain shadow instead.');
+  if (/backdrop-filter\s*:\s*blur/i.test(s)) out.push('A frosted-glass panel. Only where layering needs it.');
+  return out;
+}
 export async function graphic({ html, output, width = 1920, height = 1080, fps = 30, seconds = 5, alpha = false, log = () => {} }) {
   const browser = findBrowser();
   if (!browser) throw err('NO_BROWSER', 'Making a graphic needs Chrome or Edge installed (or CHROME_PATH set to one).');
@@ -320,7 +396,9 @@ export async function graphic({ html, output, width = 1920, height = 1080, fps =
     enc.stdin.end();
     await done;
     c.close();
-    return { file: out, frames: N, length_s: N / fps, width, height, fps, alpha };
+    // the page and the stylesheets it links on this computer, read for the defaults that look AI-made
+    let srcText = ''; try { srcText = fs.readFileSync(page, 'utf8'); for (const m of srcText.matchAll(/<link[^>]+href=["']([^"':]+\.css)["']/gi)) { const f = path.resolve(path.dirname(page), m[1]); if (fs.existsSync(f)) srcText += fs.readFileSync(f, 'utf8'); } } catch (e) { log(`graphic: could not read the page for its check: ${e.message}`); }
+    return { file: out, frames: N, length_s: N / fps, width, height, fps, alpha, warnings: slopCheck(srcText) };
   } finally {
     if (enc && enc.exitCode == null) try { enc.kill(); } catch { /* already gone */ }
     // the browser's profile folder goes once the browser has let go of it (Windows keeps its files locked until it exits)

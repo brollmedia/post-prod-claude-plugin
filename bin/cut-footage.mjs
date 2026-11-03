@@ -69,13 +69,13 @@ try {
     const t0 = Date.now();
     const r = await applyEffects(spec, { base, quality: spec.quality === 'draft' ? 'draft' : 'high', log: (m) => process.stderr.write(`${m}\n`) });
     const rep = await check(r.file);
-    out({ ok: rep.ok, file: r.file, seconds: Math.round((Date.now() - t0) / 100) / 10, layers: r.layers, length_s: r.length_s, input_length_s: r.input_length_s, lines: reportLines({ report: rep }), report: rep });
+    out({ ok: rep.ok, file: r.file, seconds: Math.round((Date.now() - t0) / 100) / 10, layers: r.layers, length_s: r.length_s, input_length_s: r.input_length_s, ...(r.warnings && r.warnings.length ? { warnings: r.warnings, warnings_note: 'Fix these before you upload, unless they asked for that look (then say so in your reply).' } : {}), lines: reportLines({ report: rep }), report: rep });
   } else if (cmd === 'graphic') {
     if (!rest[0] || rest[0].startsWith('--')) throw Object.assign(new Error('Give the page: graphic <page.html> --seconds <s>.'), { code: 'BAD_ARGS' });
     const [w, h] = String(flag('size') || '1920x1080').split('x').map(Number);
     const t0 = Date.now();
     const r = await graphic({ html: rest[0], output: flag('out'), width: w, height: h, fps: +flag('fps') || 30, seconds: +flag('seconds') || 5, alpha: rest.includes('--alpha'), log: (m) => process.stderr.write(`${m}\n`) });
-    out({ ok: true, ...r, seconds_taken: Math.round((Date.now() - t0) / 100) / 10 });
+    out({ ok: true, ...r, ...(r.warnings && r.warnings.length ? { warnings_note: 'Change these and record it again, unless they asked for that look (then say so in your reply).' } : {}), seconds_taken: Math.round((Date.now() - t0) / 100) / 10 });
   } else {
     out({ ok: false, code: 'USAGE', error: 'Commands: plan <edit-list.json> | render <edit-list.json> [--force] | splice --base --from --to --section --out | check <file> | effect <effects.json> | graphic <page.html> --seconds <s> [--alpha]' });
     process.exit(2);

@@ -156,7 +156,13 @@ three tips", "subtitles on the intro", "show a map of the route", "zoom in on th
 effect on a stretch, not a cut: `get_section` around it, `cut-footage.mjs effect <effects.json>` on the section, then
 `upload_section` as above. Never hand-write drawtext or overlay filter graphs; the effect command handles fonts, timing, fades
 and the sound (copied untouched). Times are in the section's own seconds; areas are `[x, y, w, h]` as fractions of the frame
-(look at a frame first to place them).
+(look at a frame first to place them). **How the text looks** is `"style"`: `font` (a .ttf/.otf path beside the effect list),
+`color`, `accent` (a checklist's tick) and `box` (true, or 0-1 for a bar behind the words). Use what the person asked for, in
+whatever style their channel has. When they have not said, choose on purpose: a font they put in the folder first, else a free one
+that fits the video from Google Fonts (`curl -L -o post-prod-folder/fonts/Name.ttf "https://github.com/google/fonts/raw/main/ofl/<family>/<File>.ttf"`),
+and colours taken from the video. With no colour or box given, the words read the picture behind them (dark on a bright frame,
+white on a dark one, a faint bar on a busy one). The command lists `warnings` when a default slipped through (no font chosen):
+change it, or say they asked for it.
 ```json
 { "input": "section.mp4", "output": "section-fx.mp4", "words": "v2.words.json", "words_from": 755,
   "layers": [
@@ -178,7 +184,10 @@ exist yet (a map, a counter, a chart, a lower third with motion), make as an HTM
 its own clock, so CSS animations, requestAnimationFrame and timers all come out smooth at any speed). Make the page at the
 video's size and animate it from load; `--alpha` keeps a transparent page background transparent (a `.mov` to lay OVER the
 picture with `"mode": "full"`); without it the graphic is opaque (a cutaway that replaces the picture while the voice goes
-on). Look at a frame of the result before you upload, and say in your reply what you added where.
+on). Look at a frame of the result before you upload, and say in your reply what you added where. The command checks the page
+and lists `warnings` for the looks that read as AI-made when nobody chose them: a default face (Inter, Arial, the system font),
+gradient or glowing text, a purple-to-blue gradient, emoji, bounce or elastic easing, frosted glass. Change each and record it
+again, unless the person asked for that look (a gaming channel may want neon): then say so in your reply.
 
 **Retention cues.** When a render's `cues` lists a subscribe or merch ask, or a sponsor read, say once in your reply where it
 is and that in Retti's data viewers leave more in the ~22 seconds after one (correlation, long-form only), and offer to
