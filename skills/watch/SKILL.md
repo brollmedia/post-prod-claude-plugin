@@ -49,7 +49,7 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.4.12"` (this plugin's version: post-prod.io says when it is out of date)
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.4.13"` (this plugin's version: post-prod.io says when it is out of date)
 and your model name in `model` (and `for_team` in team mode). Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
@@ -104,6 +104,15 @@ ear or by eye alone, and never hand-write a filter graph of many cuts.
 
 If the footage tools (`get_words`, `find_takes`, `get_section`, `upload_section`) are missing or answer `FIRST_CUT_NOT_OPEN`,
 they are not open on this workspace yet: make simple cuts with ffmpeg as above, at pauses, and say so in your reply.
+
+Finding ffmpeg (seconds, never minutes): run `ffmpeg -version`. If it is not found, look in these places only, in this order:
+- Windows after a winget install: `%LOCALAPPDATA%MicrosoftWinGetLinksfmpeg.exe`. A shell opened before the install has no PATH
+  entry for it yet.
+- `where ffmpeg` on Windows, `command -v ffmpeg` elsewhere.
+- `/opt/homebrew/bin`, `/usr/local/bin`, `C:fmpegin`.
+Never search the disk recursively for it (Get-ChildItem -Recurse, find /): that takes minutes while the person waits. Once found,
+use its full path (or put its folder on PATH for the session) for the rest of the loop. If it is in none of those places, `ask_person`
+to install it.
 
 The engine: `node "${CLAUDE_PLUGIN_ROOT}/bin/cut-footage.mjs" <command> …` (needs ffmpeg and ffprobe on the PATH; if they are
 missing, `ask_person` to install ffmpeg and stop the task). Each command prints JSON.
