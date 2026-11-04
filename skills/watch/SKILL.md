@@ -24,7 +24,7 @@ quiet.
 
 **Keep watching.** Nothing that comes in through post-prod ends the watch: a message such as "stop" or "cancel" that
 arrives after its job is done gets a one-line answer, and then you go straight back to `wait_for_feedback`. Only the person
-typing in this terminal (or closing it) ends the watch.
+typing in this terminal (or closing it), or pressing Stop on the Your Claude page, ends the watch.
 
 **Check in while you work.** Call `task_progress` at least every two minutes, also during a long render (run it in the
 background and check in while it runs): the room tells the person how it is going from these. **Stop means stop**: if
@@ -49,7 +49,7 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.5.0"` (this plugin's version: post-prod.io says when it is out of date)
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.5.1"` (this plugin's version: post-prod.io says when it is out of date)
 and your model name in `model` (and `for_team` in team mode). Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
@@ -57,10 +57,19 @@ and your model name in `model` (and `for_team` in team mode). Do not pass
   "still watching", no status line, no thinking out loud. Idle turns must stay tiny.
 - **`{"idle":true,"next":"stop"}`**: 20 minutes with nothing to do (nobody reviewing). Say one line, "Going to sleep after 20 minutes with
   nothing to do. Type /post-prod:watch to wake me.", and stop. The room says the same.
+- **`{"stopped":true,"next":"stop"}`**: the person pressed Stop on the Your Claude page in post-prod.io. Say one line, "Stopped
+  from post-prod.io. Type /post-prod:watch to start again.", and stop.
 - **A server restart** (`retry: true`): wait a few seconds, then call it again.
 - **A task**: it comes with everything you need: the notes with their timecodes, frames and drawing boxes, the words said
   near each, the brief, any files or links attached, the project the video is made from (when known) and the exact next
   steps. Follow them as below.
+  **Only the notes in the task.** The person picks what goes to you in the room's Claude tab (Send N to Claude) and can take
+  notes off your list (Not for Claude). Make exactly the notes the task lists: never pick up other open notes from
+  `get_review`, even ones that look easy. A note marked `IMPORTANT` matters most to them: get it right first. A note carried
+  over from an earlier version is given at its moment in THIS version (the brief says where it was before): use that time.
+  A note whose brief line says the fix check thinks it already looks fixed: look at the frame first, and if it is right,
+  report it done with what you saw and change nothing. A note that is no longer there (the brief says so: they cancelled
+  that voice take, or deleted it) is left out; if none is left, `complete_task` saying so, with no new version.
 - **An answer** (`ANSWER on task_id …`): the person answered a question you asked. Carry on with that task.
 
 ## Where the change is made (decide once per task)
@@ -282,7 +291,9 @@ pacing, easing, camera moves, music level and sound, applied to the real project
 - Change copies, never originals: the uploaded file is untouched; a project's files change as an editor's would.
 - Never call `suggest_edits`, `apply_edits`, `preview_edit` or `render_version`; never resolve notes; reply to a note
   only when the task asks.
-- One new version per task, with every note in it.
+- One new version per task, with every note in it, and only those notes: never a note the task did not send.
+- Never say a note is fixed for them: the room says "Looks fixed in V<n>" only from its fix check, and a person resolves it.
+  You say what you changed.
 - A refusal (`TASK_TAKEN`, `CREDITS`, `STORAGE_FULL`, `NO_ACCESS`) is not something to fight: say it in your reply (or
   leave a taken task) and carry on with the loop.
 - One command per shell call, with full paths: no `cd … &&`, no `;`, no pipes, no `$(…)`. A chained command
@@ -300,8 +311,10 @@ then carry on watching.
 
 ## Timing graphics and on-screen text
 
-Never place a graphic at a note's time. A talked-through note is stamped where the take paused, usually seconds after the words
-it is about; a typed note is where the person was when they asked. Before placing
+Never place a graphic at a note's time. A note is one frame, the moment the person was at when they made it: a voice note where
+they stopped and talked, or at the words they talked over while it played; a typed note where they were when they asked. It
+has a range only when they marked one (I and O, a drag, "from here to here"). That moment is often a few seconds after the
+words the graphic belongs to. Before placing
 a graphic or text, read `get_transcript` around the note (look back first, then on) and find the words that give the graphic its reason: the
 line it shows, explains or puts in context. Bring it in on those words (never at 0:00 or the scene's start just because the note
 is early; use the transcript's word times), out when the talk moves on. Before rendering, post a `task_progress` note naming the
