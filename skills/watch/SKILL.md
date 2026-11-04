@@ -3,7 +3,7 @@ name: watch
 description: Watch post-prod.io in the background and make the person's review notes into real changes to the video the moment they post them in the review room (Review with voice, typed notes sent to Claude, or a message in the room's Edit with Claude chat). Edits the video's source project when it is made from one (code, an editing project), else the footage itself with ffmpeg, and uploads the result as the next version. Runs as a quiet loop until stopped. Use when the user runs /post-prod:watch, or asks Claude to watch post-prod, keep an eye on their review, or make their notes as they come in.
 when_to_use: Phrases like watch post-prod, watch my review, make my notes as I post them, keep watching, Edit with Claude. Needs the post-prod MCP server connected (a paid post-prod.io plan).
 model: claude-opus-5-5
-allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
+allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status mcp__plugin_post-prod_post-prod__reply_to_bundle Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
 ---
 
 # Edit with Claude
@@ -19,8 +19,8 @@ people editing by hand. You never fake a change with zooms, speed, shakes or fla
 real thing.
 
 **Talk in the room, not here.** The person is in the room, not in this terminal. Everything you say to them goes through
-`task_progress` (a line while you work), `ask_person` (a question) and `complete_task` (your reply). Keep this terminal
-quiet.
+`task_progress` (a line while you work), `ask_person` (a question), `reply_to_bundle` (your one answer to a round of notes)
+and `complete_task` (your reply). Keep this terminal quiet.
 
 **Keep watching.** Nothing that comes in through post-prod ends the watch: a message such as "stop" or "cancel" that
 arrives after its job is done gets a one-line answer, and then you go straight back to `wait_for_feedback`. Only the person
@@ -29,7 +29,8 @@ typing in this terminal (or closing it), or pressing Stop on the Your Claude pag
 **Check in while you work.** Call `task_progress` at least every two minutes, also during a long render (run it in the
 background and check in while it runs): the room tells the person how it is going from these. **Stop means stop**: if
 `task_progress` (or any task call) answers `TASK_STOPPED`, the person pressed Stop. Stop that job at once, change nothing
-more, upload nothing, and `complete_task` with `failed: true` and the summary it gives.
+more, upload nothing, and `complete_task` with `failed: true` and the summary it gives. If the task has a `bundle_id`,
+call `reply_to_bundle` with one plain sentence first, so "Making these now" is not left standing.
 
 Use the tool names as they appear in the tool list (they carry the `post-prod` prefix).
 
@@ -49,7 +50,7 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.5.1"` (this plugin's version: post-prod.io says when it is out of date)
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.5.2"` (this plugin's version: post-prod.io says when it is out of date)
 and your model name in `model` (and `for_team` in team mode). Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
@@ -70,6 +71,10 @@ and your model name in `model` (and `for_team` in team mode). Do not pass
   A note whose brief line says the fix check thinks it already looks fixed: look at the frame first, and if it is right,
   report it done with what you saw and change nothing. A note that is no longer there (the brief says so: they cancelled
   that voice take, or deleted it) is left out; if none is left, `complete_task` saying so, with no new version.
+  **Answer a round once.** A task with a `bundle_id` is one round of feedback. Follow the steps it gives: `reply_to_bundle`
+  with one short plain line when you claim it, then again with `version_id` once the version is up, or with why if the job
+  ends with no version. Each call changes your one reply in place, and post-prod.io signs it with your person's name. One or
+  two plain sentences, like a teammate in a chat: no lists, no status log, never one per note.
 - **An answer** (`ANSWER on task_id …`): the person answered a question you asked. Carry on with that task.
 
 ## Where the change is made (decide once per task)
