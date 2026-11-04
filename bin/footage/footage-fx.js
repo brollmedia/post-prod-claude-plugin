@@ -284,7 +284,7 @@ export const findBrowser = () => BROWSERS.find((b) => b && fs.existsSync(b)) || 
 // The page's clock, replaced before any of its code runs: time moves only when we say, one frame at a time, so requestAnimation
 // Frame, timers, Date, performance.now, CSS animations and transitions and the Web Animations API all see the same exact frame
 // times (a slow machine renders slower, never jerkier).
-const CLOCK = `(() => {
+export const CLOCK = `(() => {
   let now = 0; const t0 = Date.now(); const raf = new Map(); let rid = 0; const timers = new Map(); let tid = 0;
   const RealDate = Date;
   performance.now = () => now;
@@ -317,7 +317,7 @@ const CLOCK = `(() => {
 })();`;
 
 /** Minimal Chrome DevTools Protocol over the browser's own WebSocket (Node 22+ has WebSocket). */
-async function cdp(wsUrl) {
+export async function cdp(wsUrl) {
   const ws = new WebSocket(wsUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = () => rej(err('NO_BROWSER', 'Could not talk to the browser.')); });
   let id = 0; const wait = new Map(), events = [];

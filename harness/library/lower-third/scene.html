@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; }
+  /* sits in the title-safe area: 6% in from the left, its baseline 14% up from the bottom */
+  .lt { position: absolute; left: 6vw; bottom: 14vh; display: grid; grid-template-columns: auto; row-gap: 1.1vh; }
+  .rule { height: max(2px, 0.19vh); width: 100%; background: var(--pp-accent); transform-origin: left center; }
+  .mask { overflow: hidden; padding-bottom: 0.4vh; }
+  .name { font-family: var(--pp-display); font-weight: 560; font-size: 5.2vh; line-height: 1.05; color: var(--pp-ink); letter-spacing: -0.01em; white-space: nowrap; }
+  .role { font-family: var(--pp-body); font-weight: 500; font-size: 2.3vh; line-height: 1.2; color: var(--pp-ink); opacity: 0.86; white-space: nowrap; }
+  .tag { font-family: var(--pp-body); font-weight: 600; font-size: 1.55vh; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-accent); white-space: nowrap; }
+  /* legibility over any footage: a soft, low dark field behind the words (no box, no shadow on the letters) */
+  .scrim { position: absolute; left: 0; bottom: 0; width: 62vw; height: 42vh; background: radial-gradient(120% 100% at 0% 100%, rgba(0,0,0,0.55), rgba(0,0,0,0) 70%); }
+</style></head>
+<body>
+  <div class="scrim" id="scrim"></div>
+  <div class="lt" id="lt">
+    <div class="mask"><div class="tag" id="tag"></div></div>
+    <div class="mask"><div class="name" id="name"></div></div>
+    <div class="rule" id="rule"></div>
+    <div class="mask"><div class="role" id="role"></div></div>
+  </div>
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id);
+  $('tag').textContent = P.tag || ''; $('name').textContent = P.name; $('role').textContent = P.role;
+  const D = +P.duration || 5, k = PP.pace;
+  PP.scene({
+    duration: D,
+    frame(t) {
+      const out = D - 0.6 * k;                       // everything leaves in the last 0.6 s
+      const rule = PP.io(t, 0.15, out, 0.55 * k, 0.4 * k, PP.ease.outExpo);
+      $('rule').style.transform = `scaleX(${rule})`;
+      const rise = (el, a) => { const p = PP.io(t, a, out, 0.5 * k, 0.35 * k); el.style.transform = `translateY(${(1 - p) * 105}%)`; };
+      rise($('tag'), 0.25); rise($('name'), 0.35); rise($('role'), 0.5);
+      $('scrim').style.opacity = PP.io(t, 0, out + 0.15, 0.6, 0.45, PP.ease.inOut);
+    },
+  });
+</script>
+</body></html>

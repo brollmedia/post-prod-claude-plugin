@@ -1,0 +1,19 @@
+{
+  "summary": "Grounds: a channel about the money and craft of running a coffee shop. Warm darkroom browns, cream type, one amber accent; an editorial serif for headlines, a clean sans for labels, mono for every number. Calm and confident, documentary pace.",
+  "type": [
+    { "face": "Fraunces", "use": "headlines, titles and big numbers" },
+    { "face": "Instrument Sans", "use": "body, labels and captions" },
+    { "face": "JetBrains Mono", "use": "numbers, data and timestamps" }
+  ],
+  "colours": [
+    { "hex": "#16110D", "role": "background" },
+    { "hex": "#F3EBDD", "role": "text" },
+    { "hex": "#E39A3B", "role": "accent" },
+    { "hex": "#8FB8A0", "role": "secondary" },
+    { "hex": "#9A8F80", "role": "muted" }
+  ],
+  "text": ["Sentence case; small labels may be uppercase with wide tracking", "Every number in mono", "Never more than two lines on screen"],
+  "pace": [{ "value": "calm", "label": "documentary pace: moves settle in 300-500 ms" }],
+  "graphics": ["Thin 2px rules and outlines, no drop shadows, no gradients, no glass", "One accent colour per graphic"],
+  "rules": ["No emoji", "No purple", "Nothing bounces"]
+}

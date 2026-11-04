@@ -1,0 +1,86 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; }
+  /* legibility on any footage: a soft field of the creator's dark behind the middle (no box, nothing on the letters) */
+  .scrim { position: absolute; inset: 0; background: radial-gradient(72% 80% at 50% 50%, color-mix(in srgb, var(--pp-paper) 86%, transparent) 35%, color-mix(in srgb, var(--pp-paper) 52%, transparent) 100%); }
+  .stack { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
+  .mask { overflow: hidden; padding-bottom: 0.12em; }
+  .tag { font-family: var(--pp-body); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-ink); opacity: 0.82; white-space: nowrap; line-height: 1.2; }
+  .row { display: flex; align-items: baseline; }
+  .count { font-family: var(--pp-mono); font-weight: 500; color: var(--pp-ink); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.03em; line-height: 1; text-align: right; white-space: nowrap; }
+  .unit { font-family: var(--pp-display); font-weight: 420; font-style: italic; color: var(--pp-ink); line-height: 1; white-space: nowrap; }
+  .sub { font-family: var(--pp-body); font-weight: 500; color: var(--pp-ink); opacity: 0.8; white-space: nowrap; line-height: 1.2; }
+  .num { font-family: var(--pp-mono); font-size: 0.94em; font-variant-numeric: tabular-nums; }
+  .month { font-family: var(--pp-mono); font-weight: 400; fill: var(--pp-ink); }
+  svg { overflow: visible; display: block; }
+</style></head>
+<body>
+  <div class="scrim" id="scrim"></div>
+  <div class="stack" id="stack">
+    <div class="mask"><div class="tag" id="tag"></div></div>
+    <div class="row" id="row"><div class="count" id="count"></div><div class="unit" id="unit"></div></div>
+    <div class="mask"><div class="sub" id="sub"></div></div>
+    <svg id="spark"></svg>
+  </div>
+<script src="../../pp-scene.js"></script>
+<script>
+(() => {
+  const P = PP.props, k = PP.pace, D = +P.duration || 5, $ = (id) => document.getElementById(id);
+  const W = PP.size.width, H = PP.size.height, portrait = H > W;
+  const u = portrait ? W / 1080 : H / 1080;
+  const vals = (P.values || []).map(Number), months = P.months || [], n = vals.length;
+  const target = vals.reduce((s, v) => s + v, 0);
+  const cum = vals.reduce((a, v) => (a.push(a[a.length - 1] + v), a), [0]);   // cum[m]: total after m months
+  const NS = 'http://www.w3.org/2000/svg', mk = (tag, at, parent) => { const e = document.createElementNS(NS, tag); for (const k2 in at) e.setAttribute(k2, at[k2]); parent.appendChild(e); return e; };
+  const monoNumbers = (node, text) => { for (const part of String(text).split(/(\d[\d.,]*\d|\d)/)) { if (!part) continue; const s = document.createElement('span'); s.textContent = part; if (/\d/.test(part)) s.className = 'num'; node.appendChild(s); } };
+
+  // sizes from the frame
+  const countS = (portrait ? 190 : 210) * u, unitS = 62 * u, tagS = 22 * u, subS = 32 * u;
+  $('tag').textContent = P.tag || ''; $('tag').style.fontSize = `${tagS}px`;
+  $('count').style.fontSize = `${countS}px`; $('unit').textContent = P.unit || ''; $('unit').style.fontSize = `${unitS}px`; $('unit').style.marginLeft = `${0.32 * unitS}px`;
+  monoNumbers($('sub'), P.sub || ''); $('sub').style.fontSize = `${subS}px`;
+  $('tag').parentNode.style.marginBottom = `${26 * u}px`; $('sub').parentNode.style.marginTop = `${28 * u}px`;
+
+  // the sparkline: one point per month, drawn up to where the count has got to
+  const sw = (portrait ? 760 : 640) * u, sh = 84 * u, labS = 15 * u, sp = $('spark');
+  sp.setAttribute('width', sw); sp.setAttribute('height', sh + labS * 2.2); sp.style.marginTop = `${46 * u}px`;
+  const lo = Math.min(...vals) * 0.97, hi = Math.max(...vals) * 1.01;
+  const X = (i) => (n > 1 ? (i / (n - 1)) * sw : sw / 2), Y = (v) => sh - ((v - lo) / (hi - lo)) * sh;
+  const base = mk('line', { x1: 0, x2: sw, y1: sh, y2: sh, stroke: 'var(--pp-ink)', 'stroke-width': Math.max(1, u), opacity: 0.3 }, sp);
+  const line = mk('polyline', { fill: 'none', stroke: 'var(--pp-accent)', 'stroke-width': Math.max(2, 3 * u), 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, sp);
+  const head = mk('circle', { r: 5 * u, fill: 'var(--pp-accent)' }, sp);
+  const labs = months.map((m, i) => { const t = mk('text', { x: X(i), y: sh + labS * 1.9, 'text-anchor': 'middle', 'font-size': labS, class: 'month' }, sp); t.textContent = m; return t; });
+
+  PP.scene({
+    duration: D,
+    setup() {
+      // the number's box is as wide as its final value, right-aligned, so the group never shifts while it counts
+      const c = $('count'); c.textContent = PP.num(target); c.style.width = `${Math.ceil(c.getBoundingClientRect().width)}px`;
+      const st = $('stack'); st.style.top = `${(H - st.getBoundingClientRect().height) / 2}px`;
+    },
+    frame(t) {
+      const a = 0.4, b = Math.min(a + 2.8 * k, D - 1.45), out = D - 0.5 * k;   // the count lands with time to read it before the exit
+      const show = PP.io(t, 0, out, 0.5, 0.5, PP.ease.inOut);
+      $('scrim').style.opacity = PP.io(t, 0, out + 0.1, 0.5, 0.45, PP.ease.inOut);
+      $('tag').style.transform = `translateY(${(1 - PP.io(t, 0.1, out, 0.5 * k, 0.4 * k)) * 110}%)`;
+      $('sub').style.transform = `translateY(${(1 - PP.io(t, 0.3, out + 0.05, 0.5 * k, 0.4 * k)) * 110}%)`;
+      $('row').style.opacity = show; $('row').style.transform = `translateY(${(1 - PP.io(t, 0.05, out, 0.55 * k, 0.5 * k)) * 18 * u}px)`;
+      sp.style.opacity = PP.io(t, 0.25, out + 0.1, 0.5, 0.45);
+      // the count runs through the months' running total (q months counted); the line's head moves with it
+      const q = PP.p(t, a, b, PP.ease.inOut) * n, qi = Math.min(n - 1, Math.floor(q));
+      $('count').textContent = PP.num(Math.round(q >= n ? target : cum[qi] + vals[qi] * (q - qi)));
+      const m = (q * (n - 1)) / n, whole = Math.min(n - 1, Math.floor(m)), f = m - whole;
+      const pts = []; for (let i = 0; i <= whole && i < n; i++) pts.push(`${X(i)},${Y(vals[i])}`);
+      let hx = X(whole), hy = Y(vals[whole]);
+      if (whole < n - 1 && f > 0) { hx = X(whole) + (X(whole + 1) - X(whole)) * f; hy = Y(vals[whole]) + (Y(vals[whole + 1]) - Y(vals[whole])) * f; pts.push(`${hx},${hy}`); }
+      line.setAttribute('points', pts.join(' '));
+      head.setAttribute('cx', hx); head.setAttribute('cy', hy);
+      head.setAttribute('opacity', PP.p(t, a - 0.2, a + 0.1));
+      labs.forEach((l, i) => l.setAttribute('opacity', 0.7 * PP.p(t, a + (i / Math.max(1, n - 1)) * (b - a) - 0.2, a + (i / Math.max(1, n - 1)) * (b - a) + 0.2)));
+    },
+  });
+})();
+</script>
+</body></html>

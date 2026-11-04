@@ -1,0 +1,108 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
+  body { width: 100vw; height: 100vh; position: relative; }
+  #stage { position: absolute; inset: 0; transform-origin: 0 0; }
+  .win { position: absolute; border-radius: 1.1vh; overflow: hidden; background: var(--pp-paper);
+         outline: max(1px, 0.1vh) solid color-mix(in srgb, var(--pp-ink) 16%, transparent); }
+  .bar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 0.8vh; box-sizing: border-box;
+         background: color-mix(in srgb, var(--pp-paper) 88%, var(--pp-ink)); }
+  .dot { width: 1.1vh; height: 1.1vh; border-radius: 50%; background: color-mix(in srgb, var(--pp-ink) 26%, transparent); flex: none; }
+  .addr { position: absolute; left: 50%; transform: translateX(-50%); height: 62%; display: flex; align-items: center; justify-content: center;
+          border-radius: 99px; background: color-mix(in srgb, var(--pp-paper) 70%, transparent); color: var(--pp-muted);
+          font-family: var(--pp-body); font-weight: 500; font-size: 1.5vh; letter-spacing: 0.01em; white-space: nowrap; }
+  .addr b { color: var(--pp-ink); font-weight: 500; opacity: 0.9; }
+  .view { position: absolute; left: 0; right: 0; bottom: 0; overflow: hidden; background: #fff; }
+  #page { position: absolute; left: 0; top: 0; }
+  #page img { display: block; }
+  #mark { position: absolute; background: var(--pp-accent); mix-blend-mode: multiply; transform-origin: left center; border-radius: 2px; }
+  #cursor { position: absolute; left: 0; top: 0; height: auto; overflow: visible; }
+  #ring { position: absolute; left: 0; top: 0; border-radius: 50%; border: max(2px, 0.2vh) solid var(--pp-accent); box-sizing: border-box; }
+</style></head>
+<body>
+  <div id="stage">
+    <div class="win" id="win">
+      <div class="bar" id="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="addr" id="addr"></div></div>
+      <div class="view" id="view">
+        <div id="page"><img id="shot" alt=""><div id="mark"></div></div>
+        <div id="ring"></div>
+        <svg id="cursor" viewBox="0 0 16 24"><path d="M1 1 L1 18.5 L5.2 14.6 L8 21.4 L11 20.1 L8.3 13.6 L14 13.4 Z" fill="#fff" stroke="#111" stroke-width="1.2" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </div>
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace;
+  const D = +P.duration || 8, W = PP.size.width, H = PP.size.height, portrait = H > W;
+  const SW = +P.screenWidth || 1440;
+  // the window: wide on 16:9, taller on portrait; the bar is a fixed share of the height
+  const winW = portrait ? W * 0.9 : Math.min(W * 0.8, H * 1.42), winH = portrait ? H * 0.7 : H * 0.84;
+  const winX = (W - winW) / 2, winY = (H - winH) / 2, barH = Math.round(H * 0.046 * (portrait ? 0.7 : 1));
+  Object.assign($('win').style, { left: winX + 'px', top: winY + 'px', width: winW + 'px', height: winH + 'px' });
+  Object.assign($('bar').style, { height: barH + 'px', paddingLeft: barH * 0.45 + 'px' });
+  $('view').style.top = barH + 'px';
+  $('addr').style.width = Math.min(winW * 0.42, H * 0.5) + 'px';
+  const host = (P.url || '').split('/')[0], rest = (P.url || '').slice(host.length);
+  $('addr').innerHTML = ''; const hb = document.createElement('b'); hb.textContent = host; $('addr').append(hb, rest);
+  $('shot').src = P.screen;
+  const viewH = winH - barH;
+  const M = P.mark;
+  // page px -> screen px. On portrait the window shows the page's text column, larger, centred on the passage (as a phone-width recording would be framed)
+  const sc = portrait ? winW / (SW * (+P.portraitShare || 0.6)) : winW / SW;
+  const px0 = portrait ? Math.min(0, Math.max(winW - SW * sc, winW / 2 - (M.x + M.w / 2) * sc)) : 0;
+  $('shot').style.width = SW * sc + 'px';
+  Object.assign($('mark').style, { left: M.x * sc + 'px', top: M.y * sc + 'px', width: M.w * sc + 'px', height: M.h * sc + 'px' });
+
+  // scroll as a mouse wheel does it: each notch eases out over a third of a second, notches overlap into a flick
+  const notches = P.scroll || [];
+  const scrollAt = (t) => notches.reduce((s, n) => s + n.by * PP.p(t, n.t, n.t + 0.34, PP.ease.outQuart), 0);
+  const total = scrollAt(1e9);
+  const pv = (x, y, s) => ({ x: x * sc + px0, y: (y - s) * sc });   // a page point in view px at scroll s
+  const cw = H * 0.024;
+  $('cursor').style.width = cw + 'px';
+
+  // the cursor rests while the wheel turns, then makes a curved, decelerating move to the start of the passage and drag-selects it
+  const tMove = 2.2, tArrive = 3.1, tClick = tArrive + 0.14, tSelEnd = tClick + 0.8;
+  const zIn0 = tClick + 0.1, zIn1 = zIn0 + 1.1 * k / 1.25, zOut0 = D - 1.9, zOut1 = zOut0 + 1.1 * k / 1.25;
+  const yLine = M.y + M.h * 0.55;
+  function cursorAt(t) {
+    const end = pv(M.x, yLine, total), sel = pv(M.x + M.w, yLine, total);
+    const start = { x: Math.min((+P.cursorFrom?.x || 1180) * sc + px0, winW * 0.9), y: Math.min(((+P.cursorFrom?.y || 1030) - total) * sc, viewH * 0.88) };
+    if (t < tMove) return start;
+    if (t < tArrive) {
+      const u = PP.p(t, tMove, tArrive, (x) => 1 - Math.pow(1 - x, 2.6));   // quick off the mark, long gentle landing
+      const cx = (start.x + end.x) / 2 + (end.y - start.y) * 0.22, cy = (start.y + end.y) / 2 + (end.x - start.x) * 0.08;
+      const a = 1 - u; return { x: a * a * start.x + 2 * a * u * cx + u * u * end.x, y: a * a * start.y + 2 * a * u * cy + u * u * end.y };
+    }
+    const s = PP.p(t, tClick, tSelEnd, PP.ease.inOut);
+    return { x: PP.lerp(end.x, sel.x, s), y: end.y };
+  }
+
+  PP.scene({
+    duration: D,
+    async setup() { await $('shot').decode().catch((e) => console.error('screen image', e)); },
+    frame(t) {
+      const s = scrollAt(t);
+      $('page').style.transform = `translate(${px0}px, ${-s * sc}px)`;
+      const c = cursorAt(t);
+      $('cursor').style.transform = `translate(${c.x - cw * 0.06}px, ${c.y - cw * 0.04}px)`;
+      // the selection grows under the drag, then stays until the zoom has pulled back
+      const sel = PP.p(t, tClick, tSelEnd, PP.ease.inOut);
+      $('mark').style.transform = `scaleX(${sel})`;
+      $('mark').style.opacity = sel > 0 ? 0.45 * (1 - PP.p(t, zOut1 + 0.1, zOut1 + 0.5)) : 0;
+      // click ring at the press
+      const r = PP.p(t, tClick, tClick + 0.55, PP.ease.out), rd = H * 0.01 + r * H * 0.028;
+      const rp = pv(M.x, yLine, total);
+      Object.assign($('ring').style, { width: rd * 2 + 'px', height: rd * 2 + 'px', transform: `translate(${rp.x - rd}px, ${rp.y - rd}px)`, opacity: t >= tClick ? 0.9 * (1 - r) : 0 });
+      // the zoom: a camera move centred on the passage, in, held, back out
+      const z = PP.p(t, zIn0, zIn1, PP.ease.inOut) * (1 - PP.p(t, zOut0, zOut1, PP.ease.inOut));
+      const Z = 1 + ((+P.zoom || 2) - 1) * z;
+      const fx = winX + px0 + (M.x + M.w / 2) * sc, fy = winY + barH + (yLine - total) * sc;
+      // keep the focus point on a straight path: interpolate where it sits on screen, not the translate
+      const sx = PP.lerp(fx, W / 2, z), sy = PP.lerp(fy, H / 2, z);
+      $('stage').style.transform = `translate(${sx - fx * Z}px, ${sy - fy * Z}px) scale(${Z})`;
+    },
+  });
+</script>
+</body></html>

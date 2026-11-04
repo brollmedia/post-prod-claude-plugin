@@ -1,0 +1,20 @@
+{
+  "what": "Callout on footage: a hand-drawn ring around the subject, an arrow in from empty space and a label, then a highlight box on a second detail. Ring and box follow the subject through keyed positions. Transparent, for over footage.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 6, "alpha": true,
+  "props": {
+    "duration": 6,
+    "frame": { "w": 1920, "h": 1080 },
+    "ring": {
+      "keys": [ { "t": 0, "x": 1450, "y": 826, "r": 372 }, { "t": 2.5, "x": 1432, "y": 825, "r": 372 }, { "t": 6, "x": 1422, "y": 822, "r": 372 } ],
+      "squash": 0.25,
+      "tilt": -3
+    },
+    "label": { "x": 190, "y": 590, "lead": "Crema:", "text": "the oils, not the foam" },
+    "box": {
+      "keys": [ { "t": 3, "x": 1176, "y": 92, "w": 520, "h": 150 }, { "t": 6, "x": 1166, "y": 90, "w": 520, "h": 150 } ],
+      "tag": "The shot",
+      "text": "18 g in, 36 g out, 28 s"
+    },
+    "guide": ""
+  }
+}

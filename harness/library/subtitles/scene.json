@@ -1,0 +1,16 @@
+{
+  "what": "Captions from a word-timed transcript in one of three styles (sentence, word highlight, punchy chunks), in sync with the voice. Transparent, for over footage.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 13.9, "alpha": true,
+  "audio": [{ "src": "../../examples/media/vo.wav", "at": 0 }],
+  "props": {
+    "words": "../../examples/media/vo-words.json",
+    "text": "A five pound latte is not five pounds of coffee. The beans cost about forty pence. The rest is rent, milk, wages, and the cup in your hand.",
+    "style": "demo",
+    "demo_styles": ["sentence", "highlight", "chunks"],
+    "style_names": { "sentence": "Sentence captions", "highlight": "Word highlight", "chunks": "Punchy chunks" },
+    "show_style_label": true,
+    "chunk_max_words": 3,
+    "linger": 0.35,
+    "duration": 13.9
+  }
+}

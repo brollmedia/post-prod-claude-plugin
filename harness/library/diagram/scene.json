@@ -1,0 +1,16 @@
+{
+  "what": "Step diagram: a process built one step at a time, each with a hand-drawn line icon and one short label, joined by drawn arrows; a closing line lands and the steps that matter take the accent. Opaque.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 8, "alpha": false,
+  "props": {
+    "tag": "Espresso extraction",
+    "steps": [
+      { "icon": "dose", "value": "18 g", "word": "dose", "variable": true },
+      { "icon": "tamp", "value": "", "word": "Tamp" },
+      { "icon": "gauge", "value": "9 bar", "word": "" },
+      { "icon": "timer", "value": "25–30 s", "word": "", "variable": true },
+      { "icon": "cup", "value": "36 g", "word": "out", "variable": true }
+    ],
+    "closing": "Same beans, three variables",
+    "duration": 8
+  }
+}

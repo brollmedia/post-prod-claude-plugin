@@ -1,0 +1,113 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
+  body { width: 100vw; height: 100vh; position: relative; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .part { position: absolute; inset: 0; overflow: hidden; }
+  #divider { position: absolute; top: 0; bottom: 0; width: max(2px, 0.19vh); margin-left: max(-1px, -0.095vh); background: var(--pp-ink); }
+  #knob { position: absolute; width: 3.6vh; height: 3.6vh; border-radius: 50%; border: max(2px, 0.19vh) solid var(--pp-ink); box-sizing: border-box;
+          top: 50%; transform: translate(-50%, -50%); background: color-mix(in srgb, var(--pp-paper) 55%, transparent); }
+  #knob::before, #knob::after { content: ''; position: absolute; top: 50%; width: 0; height: 0; border-top: 0.45vh solid transparent; border-bottom: 0.45vh solid transparent; transform: translateY(-50%); }
+  #knob::before { left: 0.75vh; border-right: 0.6vh solid var(--pp-ink); }
+  #knob::after { right: 0.75vh; border-left: 0.6vh solid var(--pp-ink); }
+  .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 34vh; background: linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0)); }
+  .lab { position: absolute; bottom: 8vh; display: grid; row-gap: 0.8vh; white-space: nowrap; }
+  .lab.r { text-align: right; justify-items: end; }
+  .mask { overflow: hidden; padding: 0.2vh 0 0.5vh; }
+  .big { font-family: var(--pp-display); font-weight: 540; font-size: 4.8vh; line-height: 1.05; color: var(--pp-ink); letter-spacing: -0.01em; }
+  .note { font-family: var(--pp-body); font-weight: 600; font-size: 1.55vh; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-ink); opacity: 0.8; }
+  .note.acc { color: var(--pp-accent); opacity: 1; }
+  .panel { position: absolute; overflow: hidden; }
+  .time { font-family: var(--pp-mono); font-weight: 500; font-size: 4.2vh; letter-spacing: -0.01em; }
+  .gutter { position: absolute; background: var(--pp-paper); }
+</style></head>
+<body>
+  <div class="part" id="p1">
+    <video id="vb" muted playsinline preload="auto"></video>
+    <video id="va" muted playsinline preload="auto"></video>
+    <div class="scrim"></div>
+    <div class="lab" id="lb"><div class="mask"><div class="big" id="lbT"></div></div><div class="mask"><div class="note" id="lbN"></div></div></div>
+    <div class="lab r" id="la"><div class="mask"><div class="big" id="laT"></div></div><div class="mask"><div class="note acc" id="laN"></div></div></div>
+    <div id="divider"></div><div id="knob"></div>
+  </div>
+  <div class="part" id="p2"></div>
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace;
+  const D = +P.duration || 8, W = PP.size.width, H = PP.size.height, portrait = H > W;
+  const G = P.grade || {}, SA = +P.splitAt || 4.1;
+  const mx = W * 0.06, my = H * 0.06;
+  // part 1: the same footage twice, the copy on the right of the divider carries the grade
+  for (const id of ['vb', 'va']) { if (G.src) $(id).src = G.src; $(id).style.objectPosition = G.position || '50% 50%'; }
+  $('va').style.filter = G.filter || 'sepia(0.3) saturate(1.3)';
+  $('lbT').textContent = G.before?.label || 'Before'; $('lbN').textContent = G.before?.note || '';
+  $('laT').textContent = G.after?.label || 'After'; $('laN').textContent = G.after?.note || '';
+  $('lb').style.left = mx + 'px'; $('la').style.right = mx + 'px';
+  $('lb').style.bottom = $('la').style.bottom = my * 1.3 + 'px';
+
+  // part 2: two panels side by side (stacked on portrait), a paper gutter between them
+  const gut = Math.max(4, Math.round(H * 0.006));
+  const panels = (P.split || []).map((s, i) => {
+    const el = document.createElement('div'); el.className = 'panel';
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; if (s.src) v.src = s.src; v.style.objectPosition = s.position || '50% 50%';
+    const sc = document.createElement('div'); sc.className = 'scrim';
+    const lab = document.createElement('div'); lab.className = 'lab';
+    const m = document.createElement('div'); m.className = 'mask';
+    const big = document.createElement('div'); big.className = 'big';
+    const place = document.createElement('span'); place.textContent = (s.place || '') + ' ';
+    const time = document.createElement('span'); time.className = 'time'; time.textContent = s.time || '';
+    big.append(place, time); m.append(big); lab.append(m); el.append(v, sc, lab); $('p2').append(el);
+    const half = portrait ? { x: 0, y: i * (H + gut) / 2, w: W, h: (H - gut) / 2 } : { x: i * (W + gut) / 2, y: 0, w: (W - gut) / 2, h: H };
+    Object.assign(el.style, { left: half.x + 'px', top: half.y + 'px', width: half.w + 'px', height: half.h + 'px' });
+    lab.style.left = (portrait ? mx : W * 0.05) + 'px';
+    lab.style.bottom = (portrait ? H * 0.035 : my * 1.3) + 'px';
+    return { el, big, half, v };
+  });
+
+  const gradeVideos = [$('va'), $('vb')];
+  PP.scene({
+    duration: D,
+    frame(t) {
+      // the divider: comes in from the right, holds at the middle, then carries on to reveal the whole grade
+      const a = PP.p(t, 0.35, 0.35 + 1.1 * k, PP.ease.inOut), b = PP.p(t, 2.75, 2.75 + 0.9 * k, PP.ease.inOut);
+      const x = W * (1 - 0.5 * a - 0.5 * b);
+      gradeVideos[0].style.clipPath = `inset(0 0 0 ${x}px)`;
+      $('divider').style.left = x + 'px'; $('knob').style.left = x + 'px';
+      const dv = a > 0 && b < 1 ? 1 : 0;
+      $('divider').style.opacity = $('knob').style.opacity = dv * (1 - PP.p(t, 2.75 + 0.75 * k, 2.75 + 0.9 * k));
+      // labels: "Before" rises as the split opens and leaves as the grade covers it; "After" rises once there is room for it
+      const rb = PP.p(t, 0.9, 0.9 + 0.5 * k) * (1 - PP.p(t, 2.75, 2.75 + 0.35 * k, PP.ease.in));
+      $('lbT').style.transform = `translateY(${(1 - rb) * 110}%)`; $('lbN').style.transform = `translateY(${(1 - PP.p(t, 1.0, 1.0 + 0.5 * k) + PP.p(t, 2.75, 2.75 + 0.35 * k, PP.ease.in)) * 110}%)`;
+      const ra = PP.p(t, 1.1, 1.1 + 0.5 * k) * (1 - PP.p(t, SA - 0.45, SA - 0.1, PP.ease.in));
+      $('laT').style.transform = `translateY(${(1 - ra) * 110}%)`;
+      $('laN').style.transform = `translateY(${(1 - Math.min(PP.p(t, 1.2, 1.2 + 0.5 * k), 1 - PP.p(t, SA - 0.45, SA - 0.1, PP.ease.in))) * 110}%)`;
+      // hand-off: the graded frame closes to the gutter while the two panels open out from it
+      const o = PP.p(t, SA, SA + 0.7 * k, PP.ease.inOut);
+      $('p1').style.visibility = o >= 1 ? 'hidden' : 'visible'; $('p1').style.opacity = 1 - 0.75 * o;
+      // once part 1 is gone its footage leaves the page: the harness seeks every <video> to t and waits for it, and a clip shorter than t never answers
+      for (const v of gradeVideos) { if (o >= 1 && v.isConnected) v.remove(); else if (o < 1 && !v.isConnected) $('p1').prepend(v); }
+      $('p2').style.visibility = o > 0 ? 'visible' : 'hidden';
+      panels.forEach((p, i) => {
+        const h = p.half;
+        // each panel is revealed from the shared gutter outward
+        const ins = (1 - o) * (portrait ? h.h : h.w);
+        p.el.style.clipPath = portrait ? (i === 0 ? `inset(${ins}px 0 0 0)` : `inset(0 0 ${ins}px 0)`) : (i === 0 ? `inset(0 0 0 ${ins}px)` : `inset(0 ${ins}px 0 0)`);
+        const r = PP.p(t, SA + 0.5 * k + i * 0.12, SA + 0.5 * k + i * 0.12 + 0.5 * k) * (1 - PP.p(t, D - 0.45, D - 0.1, PP.ease.in));
+        p.big.style.transform = `translateY(${(1 - r) * 110}%)`;
+      });
+    },
+  });
+  // every frame waits for its footage: the harness seeks <video> on render, this makes stills match too
+  const seek0 = window.seek;
+  window.seek = async (t) => {
+    await seek0(t);
+    await Promise.all([...document.querySelectorAll('video')].map((v) => new Promise((r) => {
+      if (!v.getAttribute('src') || v.error || v.networkState === 3) return r(); // no footage set (yet): nothing to wait for
+      if (Math.abs(v.currentTime - Math.min(t, (v.duration || 1e9) - 0.05)) < 1e-3 && v.readyState >= 2) return r();
+      const done = () => { v.removeEventListener('seeked', done); r(); };
+      v.addEventListener('seeked', done); v.currentTime = Math.min(t, (v.duration || 1e9) - 0.05);
+    })));
+  };
+</script>
+</body></html>

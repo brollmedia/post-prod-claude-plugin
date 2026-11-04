@@ -1,8 +1,8 @@
 ---
 name: watch
-description: Watch post-prod.io in the background and make the person's review notes into real changes to the video the moment they post them in the review room (Talk through it, typed notes sent to Claude, or a message in the room's Edit with Claude chat). Edits the video's source project when it is made from one (code, an editing project), else the footage itself with ffmpeg, and uploads the result as the next version. Runs as a quiet loop until stopped. Use when the user runs /post-prod:watch, or asks Claude to watch post-prod, keep an eye on their review, or make their notes as they come in.
+description: Watch post-prod.io in the background and make the person's review notes into real changes to the video the moment they post them in the review room (Review with voice, typed notes sent to Claude, or a message in the room's Edit with Claude chat). Edits the video's source project when it is made from one (code, an editing project), else the footage itself with ffmpeg, and uploads the result as the next version. Runs as a quiet loop until stopped. Use when the user runs /post-prod:watch, or asks Claude to watch post-prod, keep an eye on their review, or make their notes as they come in.
 when_to_use: Phrases like watch post-prod, watch my review, make my notes as I post them, keep watching, Edit with Claude. Needs the post-prod MCP server connected (a paid post-prod.io plan).
-model: opus
+model: claude-opus-5-5
 allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
 ---
 
@@ -10,7 +10,7 @@ allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_po
 
 The person reviews their video in post-prod.io, in the real review room. You are their Claude, running on their own plan,
 on their own computer. Talk to them, and change their video, exactly as you would if they were talking to you in a chat:
-post-prod is only the place they talk through. When they post notes (Talk through it, "Send to Claude"), write in the
+post-prod is only the place they talk through. When they post notes (Review with voice, "Send to Claude"), write in the
 room's Edit with Claude chat, or give you a brief, the room hands you a task. You make the change to the ACTUAL video and
 upload the result as the next version; the room shows your messages, your questions and the new version.
 
@@ -35,8 +35,8 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## Before the loop (once)
 
-1. **Opus.** If you are not running an Opus model, say once, in one line: "For the best edits, switch to Opus: pick Opus in
-   the model picker (or type /model), then run /post-prod:watch again." Then carry on anyway; never repeat it.
+1. **Opus 5.5.** Good edits need Opus 5.5 (`claude-opus-5-5`). If you are any other model, say once, in one line: "For good
+   edits, use Opus 5.5: type /model claude-opus-5-5, then run /post-prod:watch again." Then carry on anyway; never repeat it.
 2. **Connected?** If the post-prod tools are missing or ask you to sign in, say in one line: "Open the post-prod.io room's
    Edit with Claude tab and download the connector, or type /mcp, pick post-prod and sign in, then run /post-prod:watch
    again." and stop.
@@ -49,7 +49,7 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.4.14"` (this plugin's version: post-prod.io says when it is out of date)
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.5.0"` (this plugin's version: post-prod.io says when it is out of date)
 and your model name in `model` (and `for_team` in team mode). Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
@@ -192,15 +192,23 @@ times in the words); give it an `area` (`[x, y, w, h]`, the rows fit inside) to 
 (`get_section`) out to the end of the last sentence the effect belongs to, plus a second or two: an item said at the very end
 of a section is only on screen until the section stops. A number or fact on a graphic that you do not know (a subscriber
 count, a price, a date) is a placeholder: say so in your reply and ask for the real one. Subtitles come from the words file (`words_from` is the section's `from`). A **graphic** that does not
-exist yet (a map, a counter, a chart, a lower third with motion), make as an HTML page and record it:
-`cut-footage.mjs graphic page.html --seconds 6 --size 1920x1080 [--alpha]` (the person's Chrome or Edge, frame by frame on
-its own clock, so CSS animations, requestAnimationFrame and timers all come out smooth at any speed). Make the page at the
-video's size and animate it from load; `--alpha` keeps a transparent page background transparent (a `.mov` to lay OVER the
-picture with `"mode": "full"`); without it the graphic is opaque (a cutaway that replaces the picture while the voice goes
-on). Look at a frame of the result before you upload, and say in your reply what you added where. The command checks the page
-and lists `warnings` for the looks that read as AI-made when nobody chose them: a default face (Inter, Arial, the system font),
-gradient or glowing text, a purple-to-blue gradient, emoji, bounce or elastic easing, frosted glass. Change each and record it
-again, unless the person asked for that look (a gaming channel may want neon): then say so in your reply.
+exist yet (a map, a counter, a chart, a lower third, titles, a callout, a diagram, an end screen, 3D, a transition), make it
+with the harness (`${CLAUDE_PLUGIN_ROOT}/harness/README.md` is its contract; read it the first time):
+1. `node "${CLAUDE_PLUGIN_ROOT}/bin/animate.mjs" list`, then `new <closest scene> post-prod-folder/work/V<n>/<name>`: start from
+   the library, never from a blank page. Put the note's words and numbers in its `scene.json` props.
+2. The style: save `get_style_guide`'s `look` as `style.json`, and the project's fonts, logos and references in the scene's
+   `reference/` folder (list_attachments, read_attachment). No style profile: ask once (ask_person) whether to learn it now.
+3. `animate.mjs still <scene> --t <s> --style style.json` at the start, the middle and the end. Look at each still: nothing
+   off-centre, touching, overlapping or crossing text, two lines at most.
+4. `animate.mjs render <scene> --style style.json --size <the video's> --format prores` for a graphic OVER the picture
+   (`"mode": "full"` in the effect list), or `--format mp4` for a cutaway that replaces the picture while the voice goes on.
+It refuses (`SLOP`) the looks that read as AI-made when nobody chose them: a default face, gradient text, purple gradients,
+emoji, bounce, glows and glass. Change them, unless the person asked for that look (a gaming channel may want neon): then pass
+`--allow-slop "<their words>"` and say so in your reply. Say what you added where. The scene folder is part of the working
+files you attach, so the next note on it changes the scene and renders it again instead of starting over.
+A chat message from the room that starts "Make a graphic (post-prod:animate):" (the Claude tab's New graphic) is exactly this: make
+the graphic it describes with the harness, at the playhead or selection the message was sent at (the task's context), and post it
+as the next version like any other change.
 
 **Retention cues.** When a render's `cues` lists a subscribe or merch ask, or a sponsor read, say once in your reply where it
 is and that in Retti's data viewers leave more in the ~22 seconds after one (correlation, long-form only), and offer to

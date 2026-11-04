@@ -51,22 +51,22 @@ The Claude app's **Code** tab is Claude Code inside the app, on your Claude sign
 Install and start (Mac and Linux), from the video's project folder if it has one:
 
 ```
-claude update && claude plugin marketplace add brollmedia/post-prod-claude-plugin && claude plugin install post-prod@post-prod && claude --model opus "/post-prod:watch"
+claude update && claude plugin marketplace add brollmedia/post-prod-claude-plugin && claude plugin install post-prod@post-prod && claude --model claude-opus-5-5 "/post-prod:watch"
 ```
 
 Windows PowerShell (5 does not accept `&&`, so run it with semicolons):
 
 ```
-claude update; claude plugin marketplace add brollmedia/post-prod-claude-plugin; claude plugin install post-prod@post-prod; claude --model opus "/post-prod:watch"
+claude update; claude plugin marketplace add brollmedia/post-prod-claude-plugin; claude plugin install post-prod@post-prod; claude --model claude-opus-5-5 "/post-prod:watch"
 ```
 
 Then, once, in Claude Code type `/mcp`, choose `post-prod` and sign in. Next time just run `/post-prod:watch` (or
-`claude --model opus "/post-prod:watch"`) from the project folder and leave it open. `/post-prod:watch team` also takes
+`claude --model claude-opus-5-5 "/post-prod:watch"`) from the project folder and leave it open. `/post-prod:watch team` also takes
 teammates' notes when their own Claude is not watching.
 
 ### What it does
 
-When you post notes in the review room (Talk through it, or Send to Claude), write in the tab's chat, or give it a brief
+When you post notes in the review room (Review with voice, or Send to Claude), write in the tab's chat, or give it a brief
 ("What should your Claude know first?", with pictures, clips and links), it picks them up at once:
 
 - **Made from a project** (a folder linked in the tab, the folder it was started in, or one you tell it): it edits the source

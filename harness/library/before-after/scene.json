@@ -1,0 +1,19 @@
+{
+  "what": "Before and after in two parts: a wipe divider sweeps across real footage to reveal a warm colour grade, then a split screen sets two shots side by side with a place and time on each. Opaque; the footage plays inside the scene.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 8, "alpha": false,
+  "props": {
+    "duration": 8,
+    "grade": {
+      "src": "",
+      "before": { "label": "Before", "note": "As shot" },
+      "after": { "label": "After", "note": "Warm grade" },
+      "filter": "sepia(0.55) saturate(1.55) contrast(1.05) brightness(1.18) hue-rotate(-8deg)",
+      "position": "62% 50%"
+    },
+    "split": [
+      { "src": "", "place": "Leeds,", "time": "8 am", "position": "38% 50%" },
+      { "src": "", "place": "Leeds,", "time": "3 pm", "position": "60% 50%" }
+    ],
+    "splitAt": 4.1
+  }
+}

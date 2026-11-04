@@ -1,0 +1,149 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; }
+  #guide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .ink { fill: none; stroke: var(--pp-accent); stroke-linecap: round; stroke-linejoin: round; }
+  /* soft dark fields under the words, so they read on any footage (no boxes, no shadow on the letters) */
+  .scrim { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,0.66), rgba(0,0,0,0.5) 55%, rgba(0,0,0,0)); pointer-events: none; }
+  .label { position: absolute; white-space: nowrap; transform-origin: left center; }
+  .mask { overflow: hidden; padding: 0.3vh 0 0.6vh; }
+  .line { font-family: var(--pp-display); font-weight: 520; font-size: 4.3vh; line-height: 1.1; color: var(--pp-ink); letter-spacing: -0.01em; }
+  .line b { font-weight: 600; color: var(--pp-accent); }
+  .boxlabel { position: absolute; white-space: nowrap; text-align: right; display: grid; row-gap: 0.7vh; justify-items: end; }
+  .tag { font-family: var(--pp-body); font-weight: 600; font-size: 1.55vh; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-accent); }
+  .data { font-family: var(--pp-mono); font-weight: 500; font-size: 2.6vh; color: var(--pp-ink); letter-spacing: 0.01em; }
+</style></head>
+<body>
+  <div class="scrim" id="scrim1"></div>
+  <div class="scrim" id="scrim2"></div>
+  <svg id="svg">
+    <path class="ink" id="ring"/>
+    <path class="ink" id="arrow"/>
+    <path class="ink" id="head"/>
+    <path class="ink" id="box"/>
+  </svg>
+  <div class="label" id="label"><div class="mask"><div class="line" id="line"></div></div></div>
+  <div class="boxlabel" id="boxlabel">
+    <div class="mask"><div class="tag" id="tag"></div></div>
+    <div class="mask"><div class="data" id="data"></div></div>
+  </div>
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace;
+  const D = +P.duration || 6;
+  const W = PP.size.width, H = PP.size.height;
+  // positions are in the footage's own pixels (props.frame), mapped the way the footage is fitted: cover, centred
+  const FW = P.frame?.w || 1920, FH = P.frame?.h || 1080, S = Math.max(W / FW, H / FH), OX = (W - FW * S) / 2, OY = (H - FH * S) / 2;
+  const X = (x) => OX + x * S, Y = (y) => OY + y * S, L = (v) => v * S;
+  const sw = Math.max(2, H * 0.0028);                       // 3 px at 1080
+  for (const id of ['ring', 'arrow', 'head', 'box']) $(id).style.strokeWidth = sw;
+  const mx = W * 0.05, my = H * 0.05;                         // title-safe
+
+  // keyed positions, eased between keys so the follow never jerks
+  const at = (keys, t) => {
+    if (!keys || !keys.length) return null;
+    if (t <= keys[0].t) return keys[0];
+    for (let i = 1; i < keys.length; i++) if (t <= keys[i].t) {
+      const a = keys[i - 1], b = keys[i], u = PP.ease.inOut((t - a.t) / Math.max(1e-6, b.t - a.t)), o = {};
+      for (const key of Object.keys(b)) o[key] = PP.lerp(a[key] ?? b[key], b[key], u);
+      return o;
+    }
+    return keys[keys.length - 1];
+  };
+
+  // the hand-drawn ring: one stroke a little past a full turn, its radius breathing slightly, as a pen would
+  const squash = +P.ring?.squash || 0.3, tilt = (+P.ring?.tilt || 0) * Math.PI / 180;
+  function ringPath(c) {
+    const rx = L(c.r), ry = L(c.r) * squash, cx = X(c.x), cy = Y(c.y), pts = [];
+    const a0 = Math.PI * 1.08, turn = Math.PI * 2 + 0.42, N = 140;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, a = a0 + turn * u;
+      const wob = 1 + 0.018 * Math.sin(2 * a + 0.7) + 0.035 * u;       // drifts out as it closes, so the overlap shows
+      const ex = Math.cos(a) * rx * wob, ey = Math.sin(a) * ry * wob;
+      pts.push([cx + ex * Math.cos(tilt) - ey * Math.sin(tilt), cy + ex * Math.sin(tilt) + ey * Math.cos(tilt)]);
+    }
+    return { d: 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L'), cx, cy, rx, ry };
+  }
+
+  $('line').innerHTML = '';
+  if (P.label?.lead) { const b = document.createElement('b'); b.textContent = P.label.lead; $('line').append(b, ' '); }
+  $('line').append(P.label?.text || '');
+  $('tag').textContent = P.box?.tag || ''; $('data').textContent = P.box?.text || '';
+  // props.guide (lining up only): the footage behind the graphics. Only added when set: the harness waits on every <video>, and one with no source costs it seconds a frame
+  if (P.guide) { const v = document.createElement('video'); v.id = 'guide'; v.muted = true; v.preload = 'auto'; v.src = P.guide; v.style.display = 'block'; document.body.prepend(v); }
+
+  let labelBox = null;
+  PP.scene({
+    duration: D,
+    setup() {
+      // the label sits where the props say, kept inside title-safe on any aspect
+      const lab = $('label'), r = lab.getBoundingClientRect();
+      let lx = X(P.label?.x ?? 190), ly = Y(P.label?.y ?? 590) - r.height / 2;
+      lx = Math.min(Math.max(lx, mx), W - mx - r.width); ly = Math.min(Math.max(ly, my), H - my - r.height);
+      lab.style.left = lx + 'px'; lab.style.top = ly + 'px';
+      labelBox = { x: lx, y: ly, w: r.width, h: r.height };
+      Object.assign($('scrim1').style, { left: lx - r.width * 0.5 + 'px', top: ly - r.height * 1.6 + 'px', width: r.width * 2 + 'px', height: r.height * 4.2 + 'px' });
+    },
+    frame(t) {
+      // beat 1: ring, arrow, label
+      const out1 = 3.15 * k / 1.25;
+      const c = at(P.ring?.keys, t), ring = ringPath(c);
+      $('ring').setAttribute('d', ring.d);
+      const len = $('ring').getTotalLength();
+      const draw = PP.p(t, 0.3, 0.3 + 0.9 * k, PP.ease.inOut);
+      const gone1 = PP.p(t, out1, out1 + 0.4 * k, PP.ease.in);
+      $('ring').style.strokeDasharray = `${len} ${len}`;
+      $('ring').style.strokeDashoffset = len * (1 - draw);
+      $('ring').style.opacity = 1 - gone1;
+
+      // the arrow: from just past the label's end to just outside the ring, bowed upward, drawn after the ring starts
+      const lb = labelBox, sx = lb.x + lb.w + H * 0.022, sy = lb.y + lb.h * 0.45;
+      const ang = Math.atan2(sy - ring.cy, sx - ring.cx);
+      const ex = ring.cx + Math.cos(ang) * (ring.rx + H * 0.03), ey = ring.cy + Math.sin(ang) * (ring.ry + H * 0.03);
+      const qx = (sx + ex) / 2, qy = Math.min(sy, ey) - Math.abs(ex - sx) * 0.16;
+      $('arrow').setAttribute('d', `M${sx} ${sy} Q${qx} ${qy} ${ex} ${ey}`);
+      const al = $('arrow').getTotalLength(), ad = PP.p(t, 0.85 * k / 1.25, 0.85 * k / 1.25 + 0.55 * k, PP.ease.out);
+      $('arrow').style.strokeDasharray = `${al} ${al}`; $('arrow').style.strokeDashoffset = al * (1 - ad);
+      $('arrow').style.opacity = 1 - gone1;
+      const ta = Math.atan2(ey - qy, ex - qx), hl = H * 0.016, hp = PP.p(t, 0.85 * k / 1.25 + 0.45 * k, 0.85 * k / 1.25 + 0.7 * k);
+      const h1 = [ex - Math.cos(ta - 0.5) * hl * hp, ey - Math.sin(ta - 0.5) * hl * hp], h2 = [ex - Math.cos(ta + 0.5) * hl * hp, ey - Math.sin(ta + 0.5) * hl * hp];
+      $('head').setAttribute('d', `M${h1[0]} ${h1[1]} L${ex} ${ey} L${h2[0]} ${h2[1]}`);
+      $('head').style.opacity = hp > 0.01 ? 1 - gone1 : 0;
+
+      const rise = PP.p(t, 1.15 * k / 1.25, 1.15 * k / 1.25 + 0.5 * k);
+      $('line').style.transform = `translateY(${(1 - rise) * 110}%)`;
+      $('line').style.opacity = 1 - gone1;
+      $('scrim1').style.opacity = Math.min(PP.p(t, 0.2, 0.9), 1 - gone1);
+
+      // beat 2: the highlight box traces itself around the second detail, its label rises beside it
+      const b0 = 3.35 * k / 1.25, out2 = D - 0.55 * k;
+      const b = at(P.box?.keys, t);
+      if (b) {
+        const bx = X(b.x), by = Y(b.y), bw = L(b.w), bh = L(b.h), rr = H * 0.008;
+        $('box').setAttribute('d', `M${bx + bw / 2} ${by} H${bx + bw - rr} Q${bx + bw} ${by} ${bx + bw} ${by + rr} V${by + bh - rr} Q${bx + bw} ${by + bh} ${bx + bw - rr} ${by + bh} H${bx + rr} Q${bx} ${by + bh} ${bx} ${by + bh - rr} V${by + rr} Q${bx} ${by} ${bx + rr} ${by} Z`);
+        const bl = $('box').getTotalLength(), bd = PP.p(t, b0, b0 + 0.7 * k, PP.ease.inOut), g2 = PP.p(t, out2, out2 + 0.4 * k, PP.ease.in);
+        $('box').style.strokeDasharray = `${bl} ${bl}`; $('box').style.strokeDashoffset = bl * (1 - bd);
+        $('box').style.opacity = 1 - g2;
+        const lab = $('boxlabel'), r = lab.getBoundingClientRect();
+        const lx = Math.max(mx, bx - H * 0.03 - r.width), ly = Math.max(my, by + bh / 2 - r.height / 2);
+        lab.style.left = lx + 'px'; lab.style.top = ly + 'px';
+        Object.assign($('scrim2').style, { left: lx - r.width * 0.35 + 'px', top: ly - r.height * 0.9 + 'px', width: r.width * 1.7 + 'px', height: r.height * 2.8 + 'px' });
+        const r1 = PP.p(t, b0 + 0.35 * k, b0 + 0.35 * k + 0.45 * k), r2 = PP.p(t, b0 + 0.45 * k, b0 + 0.45 * k + 0.45 * k);
+        $('tag').style.transform = `translateY(${(1 - r1) * 110}%)`; $('data').style.transform = `translateY(${(1 - r2) * 110}%)`;
+        lab.style.opacity = 1 - g2;
+        $('scrim2').style.opacity = Math.min(PP.p(t, b0, b0 + 0.6), 1 - g2);
+      }
+    },
+  });
+  // the guide footage (props.guide, for lining up only) follows the scene's time
+  const seek0 = window.seek;
+  window.seek = async (t) => {
+    await seek0(t);
+    const v = $('guide');
+    if (P.guide && Math.abs(v.currentTime - t) > 1e-3) await new Promise((r) => { v.addEventListener('seeked', r, { once: true }); v.currentTime = t; setTimeout(r, 3000); });
+  };
+</script>
+</body></html>

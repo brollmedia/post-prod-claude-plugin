@@ -1,0 +1,190 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: var(--pp-paper); overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; font-family: var(--pp-body); color: var(--pp-ink); }
+  canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; display: block; }
+  /* the caption sits under the number, centred, inside title-safe */
+  .cap { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 1.2vmin; text-align: center; }
+  .m { overflow: hidden; padding: 0 1vmin 0.5vmin; }
+  #caption { font-family: var(--pp-display); font-weight: 500; font-size: 4.4vmin; line-height: 1.1; letter-spacing: -0.01em; white-space: nowrap; }
+  #caption b { font-family: var(--pp-mono); font-weight: 500; font-size: 0.86em; color: var(--pp-accent); margin-right: 0.35em; letter-spacing: -0.02em; }
+  #note { font-family: var(--pp-mono); font-weight: 400; font-size: 1.9vmin; letter-spacing: 0.02em; color: var(--pp-muted); white-space: nowrap; }
+  .rule { width: 6vmin; height: max(2px, 0.18vmin); background: var(--pp-accent); transform-origin: center; }
+</style></head>
+<body>
+  <canvas id="gl"></canvas>
+  <div class="cap" id="cap">
+    <div class="rule" id="rule"></div>
+    <div class="m"><div id="caption"><b id="capNum"></b><span id="capText"></span></div></div>
+    <div class="m"><div id="note"></div></div>
+  </div>
+<script src="../../pp-scene.js"></script>
+<script type="module">
+  import * as THREE from '../../vendor/three.module.min.js';
+
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace, E = PP.ease;
+  const D = +P.duration || 7;
+  const W = PP.size.width, H = PP.size.height, aspect = W / H, portrait = H > W;
+  const C = PP.style.colours || {};
+  const NUM = String(P.number ?? '140');
+  $('capNum').textContent = '≈' + NUM; $('capText').textContent = P.caption || '';
+  $('note').textContent = P.note || '';
+
+  // seeded random: the same scene every render
+  function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+  // ── the bean: an ellipsoid, flatter on its face, with an S-shaped groove pressed down the middle ──
+  function beanGeometry() {
+    const g = new THREE.SphereGeometry(1, 18, 12);
+    const p = g.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      let x = v.x * 0.36, y = v.y * 0.5, z = v.z * 0.26;          // ~ 7 x 10 x 5 mm, in world units of 0.1 per mm-ish
+      if (z > 0) {
+        z *= 0.72;                                                  // the face is flatter than the back
+        const cx = 0.07 * Math.sin((y / 0.5) * Math.PI * 0.95);     // the groove wanders a little
+        const d = (x - cx) / 0.06;
+        z -= 0.13 * Math.exp(-d * d) * Math.sqrt(Math.max(0, 1 - (y / 0.5) ** 2));
+      }
+      p.setXYZ(i, x, y, z);
+    }
+    g.computeVertexNormals();
+    return g.toNonIndexed();
+  }
+
+  // ── where the beans go: points on a grid inside the number, drawn in the display face ──
+  async function targets(text, spacing) {
+    const font = (PP.style.fonts && PP.style.fonts.display) || 'Fraunces';
+    try { await document.fonts.load(`800 200px "${font}"`); } catch (e) { console.error('font load', e); }
+    const cv = document.createElement('canvas'); const S = 400;
+    const ctx = cv.getContext('2d');
+    ctx.font = `800 ${S}px "${font}"`;
+    const w = Math.ceil(ctx.measureText(text).width) + 40, h = Math.ceil(S * 1.0) + 40;
+    cv.width = w; cv.height = h;
+    ctx.font = `800 ${S}px "${font}"`; ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(text, 20, 20 + S * 0.86);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 12; ctx.lineJoin = 'round'; ctx.strokeText(text, 20, 20 + S * 0.86);   // thickens thin strokes (the 4's bar) so beans can fill them
+    const data = ctx.getImageData(0, 0, w, h).data;
+    // bounding box of ink
+    let x0 = w, x1 = 0, y0 = h, y1 = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] > 128) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const pts = [];
+    const step = spacing;                                            // in canvas px
+    for (let y = y0; y <= y1; y += step * 0.87) {
+      const row = Math.round((y - y0) / (step * 0.87));
+      for (let x = x0 + (row % 2) * step / 2; x <= x1; x += step) {
+        const xi = Math.round(x), yi = Math.round(y);
+        if (data[(yi * w + xi) * 4 + 3] > 200) pts.push({ x: x - (x0 + x1) / 2, y: -(y - (y0 + y1) / 2) });
+      }
+    }
+    return { pts, wPx: x1 - x0, hPx: y1 - y0 };
+  }
+
+  let renderer, scene, camera, mesh, beans = [], baseZ = 0;
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), qs = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1), axis = new THREE.Vector3();
+
+  PP.scene({
+    duration: D,
+    async setup() {
+      const canvas = $('gl');
+      try {
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+      } catch (e) { console.error('WebGL failed:', e && e.message); throw e; }
+      renderer.setPixelRatio(1);
+      renderer.setSize(W, H, false);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+      const paper = new THREE.Color(C.paper || '#16110D');
+      renderer.setClearColor(paper, 1);
+
+      scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(paper, 20, 35);                    // depth: far beans sink into the background
+      camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 100);
+
+      // soft studio light: a big warm key from the upper left, a cool low fill, a thin rim from behind
+      scene.add(new THREE.HemisphereLight(new THREE.Color(C.ink || '#F3EBDD'), paper, 0.55));
+      const key = new THREE.DirectionalLight(new THREE.Color(C.ink || '#F3EBDD'), 2.4); key.position.set(-5, 6, 8); scene.add(key);
+      const fill = new THREE.DirectionalLight(new THREE.Color(C.accent2 || '#8FB8A0'), 0.35); fill.position.set(6, -2, 5); scene.add(fill);
+      const rim = new THREE.DirectionalLight(new THREE.Color(C.accent || '#E39A3B'), 1.2); rim.position.set(2, 4, -8); scene.add(rim);
+
+      // the number, as points; world size so the number is ~ 9 units wide
+      const spacingPx = 13;
+      const tg = await targets(NUM, spacingPx);
+      const worldW = 9, s = worldW / tg.wPx;
+      const r = rng(+P.seed || 7);
+      const geo = beanGeometry();
+      const mat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.0, flatShading: true });
+      mesh = new THREE.InstancedMesh(geo, mat, tg.pts.length);
+      const accent = new THREE.Color(C.accent || '#E39A3B'), col = new THREE.Color();
+      const beanScale = spacingPx * s / 0.72 * 0.98;               // a bean's width ≈ the grid step
+      tg.pts.forEach((p, i) => {
+        // roast: every bean is the accent pulled most of the way toward the background, a little different each
+        col.copy(accent).lerp(paper, 0.5 + r() * 0.22);
+        mesh.setColorAt(i, col);
+        const target = new THREE.Vector3(p.x * s + (r() - 0.5) * 0.04, p.y * s + (r() - 0.5) * 0.04, (r() - 0.5) * 0.25);
+        const tq = new THREE.Quaternion().setFromEuler(new THREE.Euler((r() - 0.5) * 0.5, (r() - 0.5) * 0.5, r() * Math.PI * 2));
+        const start = new THREE.Vector3(target.x + (r() - 0.5) * 5, target.y + 3.5 + r() * 3, target.z + (r() - 0.5) * 4);
+        const sq = new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.28, r() * 6.28, r() * 6.28));
+        const ax = new THREE.Vector3(r() - 0.5, r() - 0.5, r() - 0.5).normalize();
+        // left-to-right and top-down order, with a little scatter, so the number fills in like it's being poured
+        const delay = ((p.x * s) / worldW + 0.5) * 0.7 + (0.5 - (p.y * s) / 5) * 0.3 + r() * 0.45;
+        beans.push({ target, tq, start, sq, ax, spin: 3 + r() * 5, delay, size: beanScale * (0.9 + r() * 0.2) });
+      });
+      mesh.instanceColor.needsUpdate = true;
+      scene.add(mesh);
+
+      // frame the number: it fills ~62% of the width in 16:9, ~84% in 9:16; caption under it
+      const fovV = THREE.MathUtils.degToRad(camera.fov);
+      const want = portrait ? 0.84 : 0.6;
+      const visW = worldW / want, visH = visW / aspect;
+      baseZ = (visH / 2) / Math.tan(fovV / 2);
+      scene.fog.near = baseZ + 1; scene.fog.far = baseZ + 16;     // fog from just behind the number, whatever the framing
+      // caption position: just under the number's bottom edge on screen
+      const numH = tg.hPx * s, yShift = portrait ? 0.6 : 0.55;     // lift the number a little to make room
+      beans.yShift = yShift;
+      const bottomNdc = ((-numH / 2 + yShift) / (visH / 2));
+      const topPx = (1 - bottomNdc) / 2 * H;
+      $('cap').style.top = (topPx + Math.min(W, H) * 0.07) + 'px';
+    },
+    frame(t) {
+      if (!mesh) return;
+      const yShift = beans.yShift;
+      for (let i = 0; i < beans.length; i++) {
+        const b = beans[i], dur = 2.1 * k;
+        const u = PP.clamp((t - b.delay) / dur);
+        // the fall: every bean is already falling when the piece opens; from its delay it eases out into its place
+        // (ease-out cubic, so it lands without overshoot). Before the delay it keeps the same speed, so there is no seam.
+        const pre = Math.max(0, b.delay - t) * 3 / dur;              // how far back along the entry line
+        const e = E.out(u);
+        const ty = b.target.y + yShift;
+        pos.set(
+          PP.lerp(b.start.x, b.target.x, e) + (b.start.x - b.target.x) * pre,
+          PP.lerp(b.start.y, ty, e) + (b.start.y - ty) * pre,
+          PP.lerp(b.start.z, b.target.z, e) + (b.start.z - b.target.z) * pre
+        );
+        // tumble that slows to rest at its final angle
+        q.slerpQuaternions(b.sq, b.tq, E.inOut(u));
+        axis.copy(b.ax); qs.setFromAxisAngle(axis, b.spin * (Math.pow(1 - u, 2) + 2 * pre / 3));
+        q.multiply(qs);
+        sc.setScalar(b.size);
+        m4.compose(pos, q, sc);
+        mesh.setMatrixAt(i, m4);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      // the camera eases in a touch over the whole piece, and sees the number slightly from below-left
+      const dolly = PP.p(t, 0, D, E.inOut);
+      camera.position.set(PP.lerp(-1.2, -0.5, dolly), PP.lerp(-0.6, -0.25, dolly), baseZ * PP.lerp(1.08, 1.0, dolly));
+      camera.lookAt(0, 0.12, 0);
+      renderer.render(scene, camera);
+
+      // caption: after the number has formed
+      const c0 = 3.9;
+      $('rule').style.transform = `scaleX(${PP.p(t, c0, c0 + 0.5 * k, E.outExpo)})`;
+      const a = PP.p(t, c0 + 0.1, c0 + 0.1 + 0.5 * k), b = PP.p(t, c0 + 0.25, c0 + 0.25 + 0.5 * k);
+      $('caption').style.transform = `translateY(${(1 - a) * 115}%)`;
+      $('note').style.transform = `translateY(${(1 - b) * 115}%)`;
+    },
+  });
+</script>
+</body></html>

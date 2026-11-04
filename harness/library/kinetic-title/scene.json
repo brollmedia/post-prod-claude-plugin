@@ -1,0 +1,11 @@
+{
+  "what": "Episode title card in kinetic type: series and episode on a ruled masthead, the title rising word by word through a mask, the payoff word gaining weight and the accent. Opaque, on the paper colour.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 5, "alpha": false,
+  "props": {
+    "series": "Grounds",
+    "kicker": "Episode 14",
+    "title_lines": ["Why a £5 latte", "costs £5"],
+    "payoff": "£5",
+    "duration": 5
+  }
+}

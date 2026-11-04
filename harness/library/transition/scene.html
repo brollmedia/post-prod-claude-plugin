@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #panel { fill: var(--pp-paper); }
+  .band { fill: var(--pp-accent); }
+</style></head>
+<body>
+  <svg id="svg"><polygon id="panel"/><polygon class="band" id="lead"/><polygon class="band" id="tail"/></svg>
+<script src="../../pp-scene.js"></script>
+<script>
+  // The cut sits at the exact middle. props.duration must match the join ms (the page is not told the render length).
+  const P = PP.props, $ = (id) => document.getElementById(id);
+  const W = PP.size.width, H = PP.size.height;
+  const dx = H * Math.tan((+P.slant || 14) * Math.PI / 180);   // the slant's horizontal reach
+  const band = Math.max(4, W * (+P.band || 0.014));
+  const flip = P.direction === 'left';
+  const quad = (x0, x1) => {                                    // a slanted strip from x0 to x1 (its top edge is dx to the right)
+    const pts = [[x0, H], [x0 + dx, 0], [x1 + dx, 0], [x1, H]].map(([x, y]) => [flip ? W - x : x, y]);
+    return pts.map((p) => p.join(',')).join(' ');
+  };
+  const D = +P.duration || 0.8;
+  PP.scene({
+    duration: D,
+    frame(t) {
+      const d = D, hold = Math.min(+P.hold || 0.1, d * 0.3), half = (d - hold) / 2;
+      // the leading edge travels from off-left to fully past the right edge (covered), then the trailing edge follows it off
+      const span = W + dx + band;
+      const a = PP.p(t, 0, half, PP.ease.inOut), b = PP.p(t, half + hold, d, PP.ease.inOut);
+      const lead = -dx - band + a * (span + band + dx);          // panel's right (leading) edge: -dx-band → W+band
+      const tail = -dx - band + b * (span + band + dx);          // panel's left (trailing) edge
+      $('panel').setAttribute('points', quad(tail, lead));
+      $('lead').setAttribute('points', quad(lead, lead + band));
+      $('tail').setAttribute('points', quad(tail - band, tail));
+      $('lead').style.opacity = a > 0 && b < 1 ? 1 : 0;
+      $('tail').style.opacity = b > 0 && b < 1 ? 1 : 0;
+    },
+  });
+</script>
+</body></html>

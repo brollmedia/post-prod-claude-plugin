@@ -1,0 +1,62 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
+  body { width: 100vw; height: 100vh; position: relative; }
+  /* the meme format: a plain light bar with dark type, the clip right under it. Fill: the clip takes the rest of the frame.
+     Stacked (upright, video_aspect set): bar and clip are one block, centred on the dark frame, so a wide clip is not cropped to a sliver. */
+  .bar { position: absolute; left: 0; right: 0; top: var(--top); height: var(--barh); background: var(--pp-ink); }
+  .cap { position: absolute; left: var(--mx); right: var(--mx); bottom: var(--pb); font-family: var(--pp-body); font-weight: 500;
+         font-size: var(--fs); line-height: 1.22; letter-spacing: -0.005em; color: var(--pp-paper); text-wrap: pretty; }
+  video { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--barh)); width: 100%; height: var(--vh); object-fit: cover; display: block; background: var(--pp-paper); }
+</style></head>
+<body>
+  <div class="bar" id="bar"><div class="cap" id="cap"></div></div>
+  <video id="v" muted playsinline preload="auto"></video>
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id);
+  const D = +P.duration || 6, v = $('v');
+  $('cap').textContent = P.caption || '';
+  v.style.objectPosition = `${(P.focus_x ?? 0.5) * 100}% ${(P.focus_y ?? 0.5) * 100}%`;
+  // the clip is shown frame-exactly: seek it to t and wait for 'seeked'. Not requestVideoFrameCallback or setTimeout: under
+  // the harness's clock timers never fire and no frame is presented until the screenshot, so either would wait for ever.
+  const seekVideo = (t) => new Promise((res) => {
+    if (!v.src || v.readyState < 1) return res();
+    v.pause();
+    if (Math.abs(v.currentTime - t) < 1e-4 && v.readyState >= 2) return res();
+    v.addEventListener('seeked', () => res(), { once: true }); v.currentTime = t;
+  });
+  PP.scene({
+    duration: D,
+    async setup() {
+      const W = PP.size.width, H = PP.size.height, up = H > W, r = document.documentElement.style;
+      // type sized from the width: about 26 characters a line upright, so the caption sits on two lines at most
+      const fs = up ? W * 0.068 : H * 0.058;
+      r.setProperty('--fs', fs + 'px');
+      r.setProperty('--mx', (up ? W * 0.065 : W * 0.06) + 'px');
+      r.setProperty('--pb', (fs * 0.85) + 'px');
+      const capH = $('cap').getBoundingClientRect().height;
+      const va = +P.video_aspect || 0, stacked = up && va > 0;
+      if (stacked) {
+        // one block: the bar (caption with even padding) and the clip at video_aspect, centred top to bottom
+        const barh = Math.round(capH + fs * 1.7), vh = Math.round(W / va);
+        r.setProperty('--pb', (fs * 0.85) + 'px');
+        r.setProperty('--barh', barh + 'px'); r.setProperty('--vh', vh + 'px');
+        r.setProperty('--top', Math.round((H - barh - vh) / 2) + 'px');
+      } else {
+        // fill: the bar is as tall as the caption needs, its top padding keeping the words below the phone app's top bar (8% upright)
+        const barh = Math.round((up ? H * 0.085 : H * 0.07) + capH + fs * 0.85);
+        r.setProperty('--top', '0px'); r.setProperty('--barh', barh + 'px'); r.setProperty('--vh', (H - barh) + 'px');
+      }
+      if (P.video) {
+        v.src = P.video;
+        await new Promise((res, rej) => { if (v.readyState >= 2) return res(); v.addEventListener('loadeddata', res, { once: true }); v.addEventListener('error', () => rej(new Error(`meme-caption: the clip ${P.video} did not load`)), { once: true }); });
+      }
+    },
+    frame() { /* a meme does not animate: the caption is on from the first frame; the clip plays under it */ },
+  });
+  const seek0 = window.seek;
+  window.seek = async (t) => { await seek0(t); await seekVideo(t); };
+</script>
+</body></html>

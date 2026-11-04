@@ -1,0 +1,21 @@
+{
+  "what": "Route map: a line draws from stop to stop over a Natural Earth map (Mercator, thin outlines), each stop labelled with its day, a day counter running, the camera slowly pushing in. Opaque.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 8, "alpha": false,
+  "props": {
+    "tag": "Farm to roaster",
+    "title": "The route of a coffee bean",
+    "highlight_countries": ["Colombia", "United Kingdom"],
+    "stops": [
+      { "name": "Huila, Colombia", "note": "Day 0", "day": 0, "lonlat": [-75.70, 2.30], "side": "right" },
+      { "name": "Port of Buenaventura", "note": "Day 3", "day": 3, "lonlat": [-77.03, 3.88], "side": "left" },
+      { "name": "Felixstowe, UK", "note": "Day 26 · 23 at sea", "day": 26, "lonlat": [1.35, 51.96], "side": "right" },
+      { "name": "Roaster, Leeds", "note": "Day 28", "day": 28, "lonlat": [-1.55, 53.80], "side": "left" }
+    ],
+    "legs": [
+      { "mode": "By road", "via": [[-76.52, 3.45]] },
+      { "mode": "At sea", "via": [[-78.3, 4.7], [-79.3, 7.0], [-79.5, 8.75], [-79.85, 9.3], [-78.6, 11.2], [-75.6, 14.6], [-74.0, 18.4], [-73.6, 20.3], [-70.5, 23.4], [-63.0, 28.6], [-50.0, 35.2], [-34.0, 41.2], [-19.0, 46.2], [-8.0, 48.7], [-3.5, 49.7], [0.3, 50.5], [1.7, 51.2], [1.75, 51.75]] },
+      { "mode": "By road", "via": [[0.12, 52.2], [-0.75, 52.95]] }
+    ],
+    "duration": 8
+  }
+}

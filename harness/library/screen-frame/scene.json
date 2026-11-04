@@ -1,0 +1,14 @@
+{
+  "what": "Screen recording in a browser window: it scrolls like a real recording, the cursor goes to a passage, clicks and selects it, a smooth zoom pushes in on the highlighted line, then pulls back out. Opaque.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 8, "alpha": false,
+  "props": {
+    "duration": 8,
+    "screen": "media/wikipedia-latte.png",
+    "screenWidth": 1440,
+    "url": "en.wikipedia.org/wiki/Latte",
+    "scroll": [ { "t": 0.55, "by": 100 }, { "t": 0.66, "by": 100 }, { "t": 0.79, "by": 100 }, { "t": 1.55, "by": 110 }, { "t": 1.68, "by": 90 } ],
+    "mark": { "x": 597, "y": 902, "w": 352, "h": 25 },
+    "cursorFrom": { "x": 1180, "y": 1030 },
+    "zoom": 1.9
+  }
+}

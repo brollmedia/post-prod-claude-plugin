@@ -1,0 +1,123 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; }
+  /* captions sit centred, their bottom 11% up (24% when upright, clear of the phone app's own buttons), 84% wide at most */
+  .cap { position: absolute; left: 8vw; right: 8vw; bottom: var(--capb); height: 0; }
+  .cap > div, .cap .chunk { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; text-wrap: balance; }
+  .sentence, .highlight { font-family: var(--pp-body); font-weight: 600; font-size: var(--capsz); line-height: 1.22; color: var(--pp-ink);
+                          text-shadow: 0 0.06em 0.5em rgba(0,0,0,0.55), 0 0 0.12em rgba(0,0,0,0.5); }
+  .chunks { font-family: var(--pp-display); font-weight: 600; font-size: var(--chunksz); line-height: 1.02; letter-spacing: -0.015em; color: var(--pp-ink);
+            font-variation-settings: "opsz" 144; text-shadow: 0 0.04em 0.4em rgba(0,0,0,0.5), 0 0 0.08em rgba(0,0,0,0.45); }
+  /* a low, soft dark field under the words so they read on any footage (no box) */
+  .scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 42vh; background: linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0)); }
+  .label { position: absolute; top: 6vh; right: 5.5vw; font-family: var(--pp-body); font-weight: 600; font-size: var(--lblsz); letter-spacing: 0.16em;
+           text-transform: uppercase; color: var(--pp-ink); display: flex; align-items: center; gap: 0.9em; text-shadow: 0 0 0.6em rgba(0,0,0,0.6); }
+  .label .k { font-weight: 500; opacity: 0.72; }
+  .label .bar { width: 2.2em; height: 2px; background: var(--pp-ink); opacity: 0.6; }
+</style></head>
+<body>
+  <div class="scrim" id="scrim"></div>
+  <div class="label" id="label"><span class="k">Caption style</span><span class="bar"></span><span id="lname"></span></div>
+  <div class="cap" id="cap"></div>
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace;
+  const STYLES = ['sentence', 'highlight', 'chunks'];
+  const D = +P.duration || 13.9, LINGER = P.linger != null ? +P.linger : 0.35, CMAX = Math.max(1, +P.chunk_max_words || 3);
+  const names = P.style_names || {};
+  const sentences = [];   // [{ style, a, b, tokens: [{ text, start, end }], el, spans, chunks }]
+
+  // the transcript's words carry the times; props.text carries the punctuation. Token i of the text is word i of the json.
+  async function loadWords() {
+    if (Array.isArray(P.words)) return P.words;
+    const r = await fetch(new URL(P.words, location.href));
+    if (!r.ok) throw new Error(`subtitles: could not read the word timings at ${P.words}`);
+    return r.json();
+  }
+  function build(words) {
+    const toks = String(P.text || words.map((w) => w.w).join(' ')).split(/\s+/).filter(Boolean);
+    const norm = (s) => s.toLowerCase().replace(/[^a-z0-9'£]/g, '');
+    const same = toks.length === words.length;
+    if (!same) console.error(`subtitles: the text has ${toks.length} words, the timings ${words.length}; showing the timings' own words`);
+    const T = same ? toks.map((x, i) => {
+      if (norm(x) !== norm(words[i].w)) console.error(`subtitles: word ${i + 1} is "${x}" in the text but "${words[i].w}" in the timings`);
+      return { text: x, start: +words[i].start, end: +words[i].end };
+    }) : words.map((w) => ({ text: w.w, start: +w.start, end: +w.end }));
+    // sentences end on . ? !
+    let cur = [];
+    for (const tk of T) { cur.push(tk); if (/[.?!]["')]*$/.test(tk.text)) { sentences.push({ tokens: cur }); cur = []; } }
+    if (cur.length) sentences.push({ tokens: cur });
+    const pick = STYLES.includes(P.style) ? P.style : null;   // anything else (e.g. "demo") cycles demo_styles per sentence
+    const demo = (P.demo_styles || STYLES).filter((s) => STYLES.includes(s));
+    sentences.forEach((s, i) => {
+      s.style = pick || demo[i % demo.length] || 'sentence';
+      s.a = s.tokens[0].start;
+      // a caption stays up for LINGER after its last word, never past the next one's first word
+      s.b = s.tokens[s.tokens.length - 1].end + LINGER;
+    });
+    sentences.forEach((s, i) => { const n = sentences[i + 1]; if (n) s.b = Math.min(s.b, n.a); });
+    for (const s of sentences) {
+      const el = document.createElement('div'); el.className = s.style; $('cap').appendChild(el); s.el = el;
+      if (s.style === 'chunks') {
+        // 1 to CMAX words, broken after punctuation; shown without commas and stops
+        s.chunks = []; let c = [];
+        s.tokens.forEach((tk, j) => { c.push(tk); if (/[,.;:?!]["')]*$/.test(tk.text) || c.length >= CMAX || j === s.tokens.length - 1) { s.chunks.push(c); c = []; } });
+        s.chunks.forEach((c, j) => {
+          const d = document.createElement('div'); d.className = 'chunk';
+          d.textContent = c.map((x) => x.text.replace(/[,.;:]+$/, '')).join(' ');
+          el.appendChild(d); c.el = d; c.a = c[0].start;
+          const nx = s.chunks[j + 1]; c.b = nx ? nx[0].start : s.b;
+        });
+      } else {
+        el.textContent = s.tokens.map((x) => x.text).join(' ');
+        s.spans = PP.split(el).map((w) => w.el);
+      }
+    }
+  }
+  PP.scene({
+    duration: D,
+    async setup() {
+      const W = PP.size.width, H = PP.size.height, up = H > W;
+      const r = document.documentElement.style;
+      r.setProperty('--capb', (up ? 24 : 11) + 'vh');
+      r.setProperty('--capsz', (up ? Math.min(W * 0.062, H * 0.04) : H * 0.047) + 'px');
+      r.setProperty('--chunksz', (up ? Math.min(W * 0.12, H * 0.07) : H * 0.1) + 'px');
+      r.setProperty('--lblsz', Math.max(13, Math.min(W, H) * 0.019) + 'px');
+      build(await loadWords());
+      if (!P.show_style_label) $('label').style.display = 'none';
+    },
+    frame(t) {
+      // the corner label names the style of the caption that is up (or next), and changes halfway through each gap
+      const sw = sentences.map((s, i) => { const n = sentences[i + 1]; return n ? (s.b + n.a) / 2 : Infinity; });
+      const cur = sentences[sw.findIndex((x) => t < x)] || sentences[sentences.length - 1];
+      $('lname').textContent = names[cur.style] || cur.style;
+      const near = Math.min(...sw.map((x) => Math.abs(t - x)));
+      $('label').style.opacity = (PP.p(t, 0, 0.4) * (near < 0.2 ? near / 0.2 : 1) * (1 - PP.p(t, D - 0.4, D))).toFixed(3);
+      $('scrim').style.opacity = PP.io(t, 0, D - 0.4, 0.4, 0.4, PP.ease.inOut).toFixed(3);
+      for (const s of sentences) {
+        // up from the first word's start to the caption's end, to the frame
+        const on = t >= s.a && t < s.b;
+        s.el.style.visibility = on ? 'visible' : 'hidden';
+        if (!on) continue;
+        s.el.style.opacity = Math.min(1, (s.b - t) / 0.1).toFixed(3);
+        if (s.style === 'highlight') {
+          // the word being said is in the accent, from its start until the next word starts
+          s.spans.forEach((sp, j) => {
+            const tk = s.tokens[j], nx = s.tokens[j + 1];
+            const live = t >= tk.start && t < (nx ? nx.start : s.b);
+            sp.style.color = live ? 'var(--pp-accent)' : 'var(--pp-ink)';
+          });
+        } else if (s.style === 'chunks') {
+          s.chunks.forEach((c) => {
+            const v = t >= c.a && t < c.b;
+            c.el.style.visibility = v ? 'visible' : 'hidden';
+            if (v) { const p = PP.p(t, c.a, c.a + 0.16 * k, PP.ease.out); c.el.style.transform = `translateY(${((1 - p) * 0.1).toFixed(4)}em)`; }
+          });
+        }
+      }
+    },
+  });
+</script>
+</body></html>

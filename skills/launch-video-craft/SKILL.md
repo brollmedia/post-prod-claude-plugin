@@ -22,7 +22,7 @@ post-prod's look since the 1 Nov 2026 room redesign. It sets the tone for everyt
 - **One UI curve.** Interface moves (menus, tabs, rows, toggles) use `cubic-bezier(.23, 1, .32, 1)` at 150–300 ms. Camera and big moves use the asymmetric ease in section 2.
 - **Our icons.** The room's icons are cut on the logo's diagonal (32°): on hover the two halves part slightly, and the lower half turns green when a tool is on. Keep that detail visible in close-ups. Never swap in stock icon sets in a graphic.
 - **The real logo, always.** Use the logo file (the green P with its diagonal cut on black). The logo moment is the share-link opener: the two halves slide in along the cut, slow down, lock, and a thin light glints along the seam (section 2, Logo moment). Never draw a look-alike P.
-- **Each view keeps its own look.** Notes is the picture and the notes; Edits is the editor with its tracks; Talk through it is the recording booth (everything else dims, a red REC light); Edit with Claude is a conversation. A demo stays in one view per beat and changes view with a quick crossfade (about 250 ms), never a cut mid-move.
+- **Each view keeps its own look.** Notes is the picture and the notes; Edits is the editor with its tracks; Review with voice is the recording booth (everything else dims, a red REC light); Edit with Claude is a conversation. A demo stays in one view per beat and changes view with a quick crossfade (about 250 ms), never a cut mid-move.
 
 ## 1. Pacing and timing
 
@@ -68,7 +68,7 @@ post-prod's look since the 1 Nov 2026 room redesign. It sets the tone for everyt
 
 ### Colour
 - **Work from a tight palette:** the dark neutral base, one ink colour for text and the green accent. Off-palette colours make it look amateur.
-- **Use colour to mean something:** the accent marks what matters, such as the key word, the active state or the final logo. The room's edit hues (cut, zoom, blur and so on) appear only on edit chips and tracks; Talk through it's red only on the REC light.
+- **Use colour to mean something:** the accent marks what matters, such as the key word, the active state or the final logo. The room's edit hues (cut, zoom, blur and so on) appear only on edit chips and tracks; Review with voice's red only on the REC light.
 
 ### A human touch
 - **Hand-drawn marks should look human.** Use rough, slightly uneven strokes with a little wobble, varying pressure and a small overshoot at the ends, not perfect geometric lines.

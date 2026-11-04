@@ -1,0 +1,153 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
+  body { width: 100vw; height: 100vh; position: relative; }
+  .abs { position: absolute; }
+  .mask { position: absolute; overflow: hidden; padding-bottom: 0.15em; }
+  .tag { font-family: var(--pp-body); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-muted); white-space: nowrap; line-height: 1.2; }
+  .label { white-space: nowrap; line-height: 1.15; color: var(--pp-ink); text-align: center; }
+  .label .v { font-family: var(--pp-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .label .w { font-family: var(--pp-body); font-weight: 500; }
+  .closing { font-family: var(--pp-display); font-weight: 480; color: var(--pp-ink); letter-spacing: -0.012em; white-space: nowrap; line-height: 1.1; }
+  svg { position: absolute; overflow: visible; }
+  .ico * { fill: none; stroke: var(--pp-ink); stroke-linecap: round; stroke-linejoin: round; }
+  .conn { fill: none; stroke: var(--pp-muted); stroke-linecap: round; stroke-linejoin: round; }
+</style></head>
+<body>
+<div id="root"></div>
+<script src="../../pp-scene.js"></script>
+<script>
+(() => {
+  const P = PP.props, k = PP.pace, D = +P.duration || 8;
+  const W = PP.size.width, H = PP.size.height, portrait = H > W;
+  const u = portrait ? W / 1080 : H / 1080;
+  const root = document.getElementById('root'), NS = 'http://www.w3.org/2000/svg';
+  const div = (cls, parent = root) => { const d = document.createElement('div'); d.className = cls; parent.appendChild(d); return d; };
+  const svg = (tag, at, parent) => { const e = document.createElementNS(NS, tag); for (const a in at) e.setAttribute(a, at[a]); parent.appendChild(e); return e; };
+
+  // the icons: line drawings on a 64-unit grid, each part drawn on in order (pathLength 1 makes every part draw at the same rate)
+  const polar = (cx, cy, r, deg) => [cx + r * Math.cos((deg * Math.PI) / 180), cy - r * Math.sin((deg * Math.PI) / 180)];
+  const ICONS = {
+    dose: [ // portafilter, with the dose heaped in the basket
+      ['path', { d: 'M12 28 H48 L44.5 40.5 Q43.6 43 41 43 H19 Q16.4 43 15.5 40.5 Z' }],
+      ['path', { d: 'M48 33 L60 37' }],
+      ['path', { d: 'M15 28 Q30 14 45 28' }],
+      ['path', { d: 'M26 43 V48 M34 43 V48' }],
+    ],
+    tamp: [ // tamper pressing the bed level
+      ['circle', { cx: 32, cy: 11, r: 5.5 }],
+      ['path', { d: 'M32 16.5 V25' }],
+      ['path', { d: 'M20 25 H44 V31 H20 Z' }],
+      ['path', { d: 'M14 36 H50 L46.5 48.5 Q45.6 51 43 51 H21 Q18.4 51 17.5 48.5 Z' }],
+      ['path', { d: 'M17 39.5 H47' }],
+    ],
+    gauge: (() => { // pressure gauge, the needle on 9 of 12
+      const parts = [['circle', { cx: 32, cy: 34, r: 21 }]];
+      const ticks = []; for (let v = 0; v <= 12; v += 2) { const a = 225 - (v / 12) * 270, [x1, y1] = polar(32, 34, 17, a), [x2, y2] = polar(32, 34, 13.5, a); ticks.push(`M${x1.toFixed(2)} ${y1.toFixed(2)} L${x2.toFixed(2)} ${y2.toFixed(2)}`); }
+      parts.push(['path', { d: ticks.join(' ') }]);
+      const [nx, ny] = polar(32, 34, 14, 225 - (9 / 12) * 270);
+      parts.push(['path', { d: `M32 34 L${nx.toFixed(2)} ${ny.toFixed(2)}` }], ['circle', { cx: 32, cy: 34, r: 2.2 }], ['path', { d: 'M32 13 V8 M27 8 H37' }]);
+      return parts;
+    })(),
+    timer: (() => { // stopwatch, the 25–30 s window marked on the dial
+      const at = (s, r) => [32 + r * Math.sin((s / 60) * 2 * Math.PI), 36 - r * Math.cos((s / 60) * 2 * Math.PI)];
+      const [ax, ay] = at(25, 14), [bx, by] = at(30, 14), [hx, hy] = at(28, 15);
+      return [
+        ['circle', { cx: 32, cy: 36, r: 20 }],
+        ['path', { d: 'M27 9 H37 M32 9 V16' }],
+        ['path', { d: 'M47 19.5 L50.5 16' }],
+        ['path', { d: `M${ax.toFixed(2)} ${ay.toFixed(2)} A14 14 0 0 1 ${bx.toFixed(2)} ${by.toFixed(2)}`, 'data-w': 2.4 }],
+        ['path', { d: `M32 36 L${hx.toFixed(2)} ${hy.toFixed(2)}` }],
+        ['circle', { cx: 32, cy: 36, r: 1.8 }],
+      ];
+    })(),
+    cup: [ // the shot in the cup
+      ['path', { d: 'M29 8 V22 M35 8 V22' }],
+      ['path', { d: 'M16 28 H48 V34 Q48 49 32 49 Q16 49 16 34 Z' }],
+      ['path', { d: 'M48 32 Q56 32 56 38.5 Q56 44.5 47 44' }],
+      ['path', { d: 'M10 55 H54' }],
+    ],
+  };
+
+  // layout: a row across a wide frame, a column down a tall one
+  const steps = P.steps || [], n = steps.length;
+  const ic = (portrait ? 150 : 172) * u, labS = (portrait ? 40 : 40) * u, gapI = 30 * u;
+  const tagS = 22 * u, closeS = (portrait ? 64 : 72) * u;
+  const pos = [];
+  let tagY, closeY, labelSide;
+  if (!portrait) {
+    const mx = 130 * u, colW = (W - 2 * mx) / n;
+    // the block (tag, icons, labels, closing line) sits centred in the frame
+    const above = tagS * 1.2 + 110 * u + ic / 2, below = ic / 2 + 34 * u + labS * 1.2 + 120 * u + closeS * 1.1, cy = H / 2 + (above - below) / 2;
+    for (let i = 0; i < n; i++) pos.push([mx + colW * (i + 0.5), cy]);
+    tagY = cy - above; closeY = cy + below - closeS * 1.1; labelSide = 'below';
+  } else {
+    const rowH = 230 * u, top = H / 2 - ((n - 1) * rowH) / 2 - 60 * u, x = 120 * u + ic / 2;
+    for (let i = 0; i < n; i++) pos.push([x, top + rowH * i]);
+    tagY = pos[0][1] - ic / 2 - 130 * u; closeY = pos[n - 1][1] + ic / 2 + 120 * u; labelSide = 'right';
+  }
+  const tagM = div('mask'); const tag = div('tag', tagM); tag.textContent = P.tag || ''; tag.style.fontSize = `${tagS}px`;
+  const closeM = div('mask'); const close = div('closing', closeM); close.textContent = P.closing || ''; close.style.fontSize = `${closeS}px`;
+  const centreX = (el, y) => { el.style.top = `${y}px`; el.style.left = '0px'; el.style.width = `${W}px`; el.style.textAlign = 'center'; };
+  if (!portrait) { centreX(tagM, tagY); centreX(closeM, closeY); }
+  else { for (const [m, y] of [[tagM, tagY], [closeM, closeY]]) { m.style.left = `${pos[0][0] - ic / 2}px`; m.style.top = `${y}px`; } }
+
+  const S = steps.map((st, i) => {
+    const [x, y] = pos[i];
+    const s = svg('svg', { class: 'ico', viewBox: '0 0 64 64', width: ic, height: ic }, root);
+    s.style.left = `${x - ic / 2}px`; s.style.top = `${y - ic / 2}px`;
+    const sw = Math.max(1, (2.6 * u * 64) / ic);   // about 2.6 px at 1080p, whatever the icon's size
+    const parts = (ICONS[st.icon] || []).map(([tag2, at]) => { const e = svg(tag2, { ...at, pathLength: 1, 'stroke-width': at['data-w'] ? sw * 1.6 : sw }, s); e.style.strokeDasharray = '1 1'; return e; });
+    const lm = div('mask'); const lab = div('label', lm); lab.style.fontSize = `${labS}px`;
+    // the number in mono, its unit and word in the body face: 18 g dose
+    if (st.value) for (const part of st.value.split(/([\d.,–-]*\d)/)) { if (!part) continue; const v = div(/\d/.test(part) ? 'v' : 'w', lab); v.style.display = 'inline'; v.textContent = part; }
+    if (st.word) { const w2 = div('w', lab); w2.style.display = 'inline'; w2.textContent = (st.value ? ' ' : '') + st.word; }
+    if (labelSide === 'below') { lm.style.left = `${x - 200 * u}px`; lm.style.width = `${400 * u}px`; lm.style.top = `${y + ic / 2 + 34 * u}px`; }
+    else { lm.style.left = `${x + ic / 2 + 44 * u}px`; lm.style.top = `${y - labS * 0.62}px`; lab.style.textAlign = 'left'; }
+    return { s, parts, lab, st };
+  });
+  // arrows between steps, drawn on as the next step arrives
+  const C = [];
+  for (let i = 0; i < n - 1; i++) {
+    const [x1, y1] = pos[i], [x2, y2] = pos[i + 1];
+    const s = svg('svg', { width: W, height: H }, root); s.style.left = '0px'; s.style.top = '0px';
+    const a = portrait ? [x1, y1 + ic / 2 + gapI] : [x1 + ic / 2 + gapI, y1], b = portrait ? [x2, y2 - ic / 2 - gapI] : [x2 - ic / 2 - gapI, y2];
+    const ah = 9 * u, sw = Math.max(1.5, 2 * u);
+    const line = svg('path', { class: 'conn', d: `M${a[0]} ${a[1]} L${b[0]} ${b[1]}`, 'stroke-width': sw, pathLength: 1 }, s);
+    const head = svg('path', { class: 'conn', d: portrait ? `M${b[0] - ah} ${b[1] - ah} L${b[0]} ${b[1]} L${b[0] + ah} ${b[1] - ah}` : `M${b[0] - ah} ${b[1] - ah} L${b[0]} ${b[1]} L${b[0] - ah} ${b[1] + ah}`, 'stroke-width': sw }, s);
+    line.style.strokeDasharray = '1 1';
+    C.push({ line, head });
+  }
+
+  const at = (i) => 0.55 + i * 0.95 * Math.min(1, k);   // a step a little under every second
+  const tClose = at(n - 1) + 1.0, out = D - 0.45;
+  PP.scene({
+    duration: D,
+    frame(t) {
+      root.style.opacity = 1 - PP.p(t, out, D, PP.ease.inOut);
+      tag.style.transform = `translateY(${(1 - PP.p(t, 0.15, 0.6)) * 110}%)`;
+      const hl = PP.p(t, tClose + 0.25, tClose + 0.8, PP.ease.inOut);
+      S.forEach((x, i) => {
+        const a = at(i), m = x.parts.length;
+        x.parts.forEach((e, j) => { const p = PP.p(t, a + j * 0.1, a + j * 0.1 + 0.55, PP.ease.inOut); e.style.strokeDashoffset = 1 - p; e.style.opacity = p > 0 ? 1 : 0; });
+        const lp = PP.p(t, a + 0.3, a + 0.75);
+        x.lab.style.transform = `translateY(${(1 - lp) * 110}%)`;
+        // at the close, the variables take the accent and the fixed steps step back
+        const on = x.st.variable;
+        x.s.style.opacity = on ? 1 : 1 - 0.55 * hl;
+        x.lab.style.opacity = on ? 1 : 1 - 0.55 * hl;
+        x.lab.style.color = on && hl > 0 ? `color-mix(in srgb, var(--pp-accent) ${Math.round(hl * 100)}%, var(--pp-ink))` : '';
+        if (on) x.parts.forEach((e) => { e.style.stroke = hl > 0 ? `color-mix(in srgb, var(--pp-accent) ${Math.round(hl * 100)}%, var(--pp-ink))` : ''; });
+      });
+      C.forEach((c, i) => {
+        const p = PP.p(t, at(i) + 0.5, at(i + 1) + 0.05, PP.ease.inOut);
+        c.line.style.strokeDashoffset = 1 - p; c.line.style.opacity = p > 0 ? 1 - 0.4 * hl : 0;
+        c.head.style.opacity = PP.p(t, at(i + 1) - 0.05, at(i + 1) + 0.2) * (1 - 0.4 * hl);
+      });
+      close.style.transform = `translateY(${(1 - PP.p(t, tClose, tClose + 0.55)) * 110}%)`;
+    },
+  });
+})();
+</script>
+</body></html>

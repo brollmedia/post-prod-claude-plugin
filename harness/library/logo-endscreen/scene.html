@@ -1,0 +1,200 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: var(--pp-paper); overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; color: var(--pp-ink); font-family: var(--pp-body); }
+  .abs { position: absolute; }
+
+  /* the logo: mark + wordmark, centred as one unit; moved and scaled as one */
+  #logo { left: 50%; top: 50%; display: flex; align-items: center; gap: 2.6vmin; transform-origin: center center; will-change: transform; }
+  #logo .lockup { display: flex; flex-direction: column; align-items: flex-start; }
+  #mark { width: 12vmin; height: 12vmin; overflow: visible; flex: none; }
+  .word { display: flex; overflow: hidden; padding: 0.6vmin 0 1.8vmin; margin: -0.6vmin 0 -1.8vmin; }
+  .word span { font-family: var(--pp-display); font-weight: 600; font-size: 13vmin; line-height: 1; letter-spacing: -0.025em; font-variation-settings: "opsz" 144, "SOFT" 30; display: inline-block; }
+  .tagwrap { overflow: hidden; margin: 1.4vmin 0 0 0.8vmin; }
+  #tagline { font-family: var(--pp-body); font-weight: 500; font-size: 1.8vmin; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-muted); white-space: nowrap; }
+
+  /* subscribe row */
+  #subrow { left: 50%; top: 58%; display: flex; align-items: center; gap: 1.6vmin; transform: translate(-50%, 0); }
+  .btn { position: relative; height: 7vmin; border-radius: 3.5vmin; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  #sub { background: var(--pp-accent); color: var(--pp-paper); width: 28vmin; }
+  #sub .lbl { font-family: var(--pp-body); font-weight: 600; font-size: 2.7vmin; letter-spacing: 0.01em; white-space: nowrap; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1vmin; }
+  #subB { color: var(--pp-ink); }
+  #sub .ring { position: absolute; inset: 0; border-radius: inherit; border: max(2px, 0.2vmin) solid var(--pp-muted); box-sizing: border-box; opacity: 0; }
+  #bell { width: 7vmin; border: max(2px, 0.2vmin) solid var(--pp-muted); }
+  #bell svg { width: 3.4vmin; height: 3.4vmin; overflow: visible; }
+  #cursor { left: 0; top: 0; width: 4.2vmin; height: 4.2vmin; overflow: visible; will-change: transform; transform-origin: 19% 10%; }
+
+  /* end screen */
+  .vid .frame { position: absolute; inset: 0; overflow: hidden; border-radius: 0.6vmin; background: #0d0a08; }
+  .vid video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .vid svg.edge { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .vtitle { position: absolute; left: 0; bottom: calc(100% + 1.6vmin); display: flex; flex-direction: column; gap: 0.6vmin; }
+  .vtitle .m { overflow: hidden; padding-bottom: 0.4vmin; }
+  .vtitle .k { font-family: var(--pp-body); font-weight: 600; font-size: 1.6vmin; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-accent); white-space: nowrap; }
+  .vtitle .t { font-family: var(--pp-display); font-weight: 500; font-size: 3.3vmin; line-height: 1.1; letter-spacing: -0.01em; white-space: nowrap; }
+  #circ svg { width: 100%; height: 100%; overflow: visible; }
+</style></head>
+<body>
+  <div id="logo" class="abs">
+    <svg id="mark" viewBox="-50 -50 100 100">
+      <g transform="rotate(-28)">
+        <ellipse id="beanFill" cx="0" cy="0" rx="31" ry="43" fill="var(--pp-accent)" opacity="0"/>
+        <path id="beanLine" d="M0 -43 C17.1 -43 31 -23.7 31 0 C31 23.7 17.1 43 0 43 C-17.1 43 -31 23.7 -31 0 C-31 -23.7 -17.1 -43 0 -43 Z" pathLength="1" fill="none" stroke="var(--pp-accent)" stroke-width="4.2" stroke-linecap="round"/>
+        <path id="groove" d="M1 -36 C-10 -20 10 -10 0 2 C-10 14 10 22 -1 36" pathLength="1" fill="none" stroke="var(--pp-paper)" stroke-width="4.6" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="lockup">
+      <div class="word" id="word"></div>
+      <div class="tagwrap"><div id="tagline"></div></div>
+    </div>
+  </div>
+
+  <div id="subrow" class="abs">
+    <div class="btn" id="sub">
+      <div class="ring" id="subRing"></div>
+      <div class="lbl" id="subA"></div>
+      <div class="lbl" id="subB"><svg viewBox="0 0 24 24" style="width:2.6vmin;height:2.6vmin"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--pp-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="subBt"></span></div>
+    </div>
+    <div class="btn" id="bell">
+      <svg viewBox="0 0 24 24"><path id="bellBody" d="M12 3.2c-3.3 0-5.8 2.6-5.8 5.9v4.4L4.4 16.6h15.2l-1.8-3.1V9.1C17.8 5.8 15.3 3.2 12 3.2z" fill="none" stroke="var(--pp-ink)" stroke-width="1.8" stroke-linejoin="round"/><path id="bellClap" d="M9.6 19.2a2.5 2.5 0 0 0 4.8 0" fill="none" stroke="var(--pp-ink)" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+  <div id="vids"></div>
+  <div id="circ" class="abs">
+    <svg viewBox="-50 -50 100 100">
+      <circle id="circLine" r="48" pathLength="1" fill="none" stroke="var(--pp-ink)" stroke-opacity="0.55" stroke-width="1.4" transform="rotate(-90)"/>
+      <g id="circMark" opacity="0"><g transform="rotate(-28) scale(0.55)">
+        <ellipse rx="31" ry="43" fill="var(--pp-accent)"/>
+        <path d="M1 -36 C-10 -20 10 -10 0 2 C-10 14 10 22 -1 36" fill="none" stroke="var(--pp-paper)" stroke-width="4.6" stroke-linecap="round"/>
+      </g></g>
+    </svg>
+  </div>
+
+  <svg id="cursor" class="abs" viewBox="0 0 24 24"><path d="M4.5 2.5v16.2l4.1-3.9 2.9 6.3 2.6-1.2-2.9-6.2h5.7z" fill="var(--pp-ink)" stroke="var(--pp-paper)" stroke-width="1.3" stroke-linejoin="round"/></svg>
+
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace;
+  const D = +P.duration || 10;
+  const W = PP.size.width, H = PP.size.height, portrait = H > W;
+  const vw = W / 100, vh = H / 100, vmin = Math.min(W, H) / 100;
+  const E = PP.ease;
+
+  // content
+  const letters = [...(P.name || 'Grounds')].map((ch) => { const s = document.createElement('span'); s.textContent = ch; $('word').appendChild(s); return s; });
+  $('tagline').textContent = P.tagline || '';
+  $('subA').textContent = P.subscribe || 'Subscribe';
+  $('subBt').textContent = P.subscribed || 'Subscribed';
+
+  // End-screen layout. 16:9: YouTube's "two videos + subscribe" template, kept inside its end-screen area: videos 30% of the
+  // width, side by side, the subscribe circle centred under them, everything clear of the bottom 15% (player controls).
+  // 9:16: stacked.
+  const vwid = portrait ? 80 * vw : 30 * vw, vhgt = vwid * 9 / 16;
+  const L = portrait
+    ? { x1: 10 * vw, y1: 19 * vh, x2: 10 * vw, y2: 19 * vh + vhgt + 9 * vh, cd: 9 * vh, logoTop: 5.5 * vh }
+    : { x1: 50 * vw - vwid - 1.5 * vw, y1: 31 * vh, x2: 51.5 * vw, y2: 31 * vh, cd: 15 * vh, logoTop: 8 * vh };
+  L.cx = 50 * vw; L.cy = (portrait ? L.y2 + vhgt + 3.5 * vh : L.y1 + vhgt + 5 * vh) + L.cd / 2;
+  const vids = (P.videos || []).slice(0, 2).map((v, i) => {
+    const d = document.createElement('div'); d.className = 'vid abs';
+    Object.assign(d.style, { left: (i ? L.x2 : L.x1) + 'px', top: (i ? L.y2 : L.y1) + 'px', width: vwid + 'px', height: vhgt + 'px' });
+    d.innerHTML = `<div class="frame"><video muted playsinline preload="auto"></video></div>
+      <svg class="edge" viewBox="0 0 ${vwid} ${vhgt}"><rect x="0" y="0" width="${vwid}" height="${vhgt}" rx="${0.6 * vmin}" pathLength="1" fill="none" stroke="var(--pp-ink)" stroke-opacity="0.7" stroke-width="2"/></svg>
+      <div class="vtitle"><div class="m"><div class="k"></div></div><div class="m"><div class="t"></div></div></div>`;
+    const vid = d.querySelector('video'); if (v.src) vid.src = v.src;
+    // Work-around (harness, 4 Nov 2026): after each seek the harness waits for requestVideoFrameCallback, which headless
+    // Chrome never fires on a paused video, and its 3 s fallback timer runs on the harness's frozen clock, so the render
+    // hangs. Without rVFC the harness takes 'seeked' (the new frame is decoded by then) as done.
+    Object.defineProperty(vid, 'requestVideoFrameCallback', { value: undefined });
+    d.querySelector('.k').textContent = v.label || '';
+    d.querySelector('.t').textContent = v.title || '';
+    $('vids').appendChild(d);
+    return { frame: d.querySelector('.frame'), rect: d.querySelector('rect'), k: d.querySelector('.k'), t: d.querySelector('.t') };
+  });
+  Object.assign($('circ').style, { width: L.cd + 'px', height: L.cd + 'px', left: (L.cx - L.cd / 2) + 'px', top: (L.cy - L.cd / 2) + 'px' });
+
+  // timeline (seconds; scaled by the creator's pace)
+  // start times are fixed so the beats land the same at any pace; the pace scales how long each move takes
+  const T = { draw: 0.2, fill: 1.1, word: 0.75, tag: 1.45, up: 2.8, row: 3.1, cur: 3.4, press1: 4.6, cur2: 4.95, press2: 5.75, rowOut: 6.3, endLogo: 6.3, boxes: 6.75, circ: 7.2 };
+
+  let tgt = null, logoH = 0;
+  PP.scene({
+    duration: D,
+    setup() {
+      // where the cursor clicks: the buttons' centres where they rest
+      const c = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+      tgt = { sub: c($('sub')), bell: c($('bell')) };
+      logoH = $('logo').getBoundingClientRect().height;
+      for (const v of document.querySelectorAll('video')) v.pause();
+    },
+    frame(t) {
+      // 1. logo: the outline draws, the bean fills, the groove cuts in; letters rise out of a mask
+      const dr = PP.p(t, T.draw, T.draw + 1.0 * k, E.inOut);
+      $('beanLine').style.strokeDasharray = dr >= 1 ? 'none' : '1 1'; $('beanLine').style.strokeDashoffset = 1 - dr;
+      $('beanFill').setAttribute('opacity', PP.p(t, T.fill - 0.15 * k, T.fill + 0.3 * k, E.out));
+      const gr = PP.p(t, T.fill, T.fill + 0.55 * k, E.inOut);
+      $('groove').style.strokeDasharray = '1 1'; $('groove').style.strokeDashoffset = 1 - gr;
+      $('groove').style.visibility = gr > 0 ? 'visible' : 'hidden';
+      letters.forEach((s, i) => { const p = PP.p(t, T.word + i * 0.05 * k, T.word + i * 0.05 * k + 0.55 * k, E.out); s.style.transform = `translateY(${(1 - p) * 115}%)`; });
+      const tp = PP.p(t, T.tag, T.tag + 0.5 * k, E.out); $('tagline').style.transform = `translateY(${(1 - tp) * 115}%)`;
+
+      // logo position: centre, then up for the subscribe beat, then small at the top for the end screen
+      const up = PP.p(t, T.up, T.up + 0.6 * k, E.inOut), end = PP.p(t, T.endLogo, T.endLogo + 0.7 * k, E.inOut);
+      const y1 = -11 * vh, s1 = 0.78, sEnd = portrait ? 0.5 : 0.42;
+      const yEnd = L.logoTop + logoH * sEnd / 2 - 50 * vh;
+      const y = PP.lerp(PP.lerp(0, y1, up), yEnd, end), s = PP.lerp(PP.lerp(1, s1, up), sEnd, end);
+      $('logo').style.transform = `translate(-50%, -50%) translateY(${y}px) scale(${s})`;
+      $('tagline').parentNode.style.opacity = 1 - PP.p(t, T.endLogo, T.endLogo + 0.35 * k);
+
+      // 2. subscribe row
+      const rowIn = PP.p(t, T.row, T.row + 0.5 * k, E.out), rowOut = PP.p(t, T.rowOut, T.rowOut + 0.4 * k, E.in);
+      $('subrow').style.opacity = rowIn * (1 - rowOut);
+      $('subrow').style.transform = `translate(-50%, ${(1 - rowIn) * 2.5 * vmin - rowOut * 2 * vmin}px)`;
+      // presses: down 120 ms, back up 220 ms, no overshoot
+      const press = (a) => t < a ? 0 : t < a + 0.12 ? E.out((t - a) / 0.12) : 1 - E.out(Math.min(1, (t - a - 0.12) / 0.22));
+      const p1 = press(T.press1), p2 = press(T.press2);
+      $('sub').style.transform = `scale(${1 - 0.04 * p1})`;
+      $('bell').style.transform = `scale(${1 - 0.06 * p2})`;
+      // subscribed: the fill gives way to a quiet outline, the label crossfades
+      const sw = PP.p(t, T.press1 + 0.08, T.press1 + 0.38, E.out);
+      $('sub').style.background = `color-mix(in srgb, var(--pp-accent) ${(1 - sw) * 100}%, transparent)`;
+      $('subRing').style.opacity = sw;
+      $('subA').style.opacity = 1 - sw; $('subB').style.opacity = sw;
+      const bw = PP.p(t, T.press2 + 0.08, T.press2 + 0.38, E.out);
+      $('bellBody').setAttribute('fill', 'var(--pp-accent)'); $('bellBody').setAttribute('fill-opacity', bw);
+      const bc = `color-mix(in srgb, var(--pp-accent) ${bw * 100}%, var(--pp-ink))`;
+      $('bellBody').style.stroke = bc; $('bellClap').style.stroke = bc;
+      $('bell').style.borderColor = `color-mix(in srgb, var(--pp-accent) ${bw * 100}%, var(--pp-muted))`;
+
+      // cursor: glides in from the lower right, clicks subscribe, then the bell, then leaves
+      const hot = { x: 0.19 * 4.2 * vmin, y: 0.1 * 4.2 * vmin };   // the arrow's tip inside its box
+      const start = { x: 80 * vw, y: 96 * vh }, off = { x: 76 * vw, y: 110 * vh };
+      const aim = (pt) => ({ x: pt.x + 0.8 * vmin, y: pt.y + 0.6 * vmin });
+      const a = PP.p(t, T.cur, T.cur + 0.85 * k, E.inOut), b = PP.p(t, T.cur2, T.cur2 + 0.55 * k, E.inOut), c = PP.p(t, T.press2 + 0.4, T.press2 + 0.4 + 0.6 * k, E.in);
+      const s0 = aim(tgt.sub), b0 = aim(tgt.bell);
+      const cx = PP.lerp(PP.lerp(PP.lerp(start.x, s0.x, a), b0.x, b), off.x, c);
+      const cy = PP.lerp(PP.lerp(PP.lerp(start.y, s0.y, a), b0.y, b), off.y, c);
+      const ci = PP.p(t, T.cur, T.cur + 0.3 * k), co = PP.p(t, T.press2 + 0.55, T.press2 + 0.55 + 0.4 * k);
+      $('cursor').style.opacity = ci * (1 - co);
+      $('cursor').style.transform = `translate(${cx - hot.x}px, ${cy - hot.y}px) scale(${1 - 0.1 * Math.max(p1, p2)})`;
+
+      // 3. end screen: frames draw, the footage fades up inside, titles rise; then the subscribe circle
+      vids.forEach((v, i) => {
+        const a0 = T.boxes + i * 0.15 * k;
+        const ed = PP.p(t, a0, a0 + 0.7 * k, E.inOut);
+        v.rect.style.strokeDasharray = ed >= 1 ? 'none' : '1 1'; v.rect.style.strokeDashoffset = 1 - ed;
+        v.rect.setAttribute('stroke-opacity', PP.lerp(0.7, 0.2, PP.p(t, a0 + 0.6 * k, a0 + 1.1 * k)));
+        v.frame.style.opacity = PP.p(t, a0 + 0.35 * k, a0 + 0.9 * k, E.out);
+        const kt = PP.p(t, a0 + 0.3 * k, a0 + 0.8 * k), tt = PP.p(t, a0 + 0.4 * k, a0 + 0.9 * k);
+        v.k.style.transform = `translateY(${(1 - kt) * 115}%)`; v.t.style.transform = `translateY(${(1 - tt) * 115}%)`;
+      });
+      const cl = PP.p(t, T.circ, T.circ + 0.8 * k, E.inOut);
+      $('circLine').style.strokeDasharray = cl >= 1 ? 'none' : '1 1';   // 'none' once drawn: no seam at the join $('circLine').style.strokeDashoffset = 1 - cl;
+      $('circMark').setAttribute('opacity', PP.p(t, T.circ + 0.45 * k, T.circ + 0.9 * k));
+      // (never hide the videos with visibility/display: the harness waits for a painted video frame on every seek)
+      $('circ').style.visibility = t >= T.circ ? 'visible' : 'hidden';
+    },
+  });
+</script>
+</body></html>

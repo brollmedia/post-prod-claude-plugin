@@ -1,0 +1,136 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; }
+  /* a soft dark field behind the panel so it reads on bright footage (no box, no glass) */
+  .scrim { position: absolute; inset: 0; background: radial-gradient(var(--sr) var(--sr) at var(--cx) var(--cy), rgba(0,0,0,0.6), rgba(0,0,0,0) 100%); }
+  .panel { position: absolute; left: var(--cx); top: var(--cy); width: var(--d); transform: translate(-50%, -50%); color: var(--pp-ink); }
+  .head { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--pp-body); font-weight: 600; font-size: var(--sm);
+          letter-spacing: 0.16em; text-transform: uppercase; }
+  .head .spd { font-family: var(--pp-mono); font-weight: 500; letter-spacing: 0.02em; text-transform: none; opacity: 0.72; }
+  .rule { height: 2px; background: var(--pp-ink); opacity: 0.5; transform-origin: left center; }
+  .dialwrap { position: relative; width: var(--d); height: var(--d); margin-top: calc(var(--sm) * 1.6); }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .tick-l { font-family: var(--pp-mono); font-size: var(--xs); fill: var(--pp-ink); opacity: 0.7; }
+  .centre { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-58%); text-align: center; }
+  .secs { font-family: var(--pp-mono); font-weight: 500; font-size: var(--big); line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .secs small { font-size: 0.36em; letter-spacing: 0; margin-left: 0.12em; opacity: 0.8; }
+  .tgt { margin-top: calc(var(--sm) * 0.9); font-family: var(--pp-body); font-weight: 600; font-size: var(--sm); letter-spacing: 0.14em; text-transform: uppercase; }
+  .tgt b { font-family: var(--pp-mono); font-weight: 500; letter-spacing: 0.02em; text-transform: none; }
+  .out { display: flex; justify-content: space-between; align-items: baseline; margin-top: calc(var(--sm) * 1.0); }
+  .out .k { font-family: var(--pp-body); font-weight: 600; font-size: var(--sm); letter-spacing: 0.16em; text-transform: uppercase; }
+  .out .k span { display: block; margin-top: 0.55em; font-size: 1.12em; font-weight: 500; letter-spacing: 0.02em; text-transform: none; opacity: 0.85; }
+  .grams { font-family: var(--pp-mono); font-weight: 500; font-size: var(--mid); line-height: 1; font-variant-numeric: tabular-nums; }
+  .grams small { font-size: 0.5em; margin-left: 0.15em; opacity: 0.8; }
+  .fade { will-change: opacity, transform; }
+</style></head>
+<body>
+  <div class="scrim" id="scrim"></div>
+  <div class="panel" id="panel">
+    <div class="head fade" id="head"><span id="label"></span><span class="spd" id="spd"></span></div>
+    <div class="rule" id="rule1" style="margin-top: calc(var(--sm) * 0.8)"></div>
+    <div class="dialwrap">
+      <svg id="dial" viewBox="-100 -100 200 200"></svg>
+      <div class="centre fade" id="centre">
+        <div class="secs"><span id="secs">0.0</span><small>s</small></div>
+        <div class="tgt" id="tgt"></div>
+      </div>
+    </div>
+    <div class="rule" id="rule2"></div>
+    <div class="out fade" id="out">
+      <div class="k">Out<span id="ratio"></span></div>
+      <div class="grams"><span id="grams">0.0</span><small>g</small></div>
+    </div>
+  </div>
+<script src="../../pp-scene.js"></script>
+<script>
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace;
+  const D = +P.duration || 9, SHOT = +P.shot_seconds || 28, MAX = +P.dial_max || 35;
+  const [T0, T1] = Array.isArray(P.target) ? P.target.map(Number) : [25, 30];
+  const C0 = +P.count_from || 0.7, CS = +P.count_seconds || 7, SPEED = SHOT / CS;
+  const DOSE = +P.dose_g || 18, YIELD = +P.yield_g || 36, DROPS = P.first_drops_s != null ? +P.first_drops_s : 6;
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a, parent) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); (parent || $('dial')).appendChild(e); return e; };
+  // the dial: 270 degrees, the gap at the bottom; 0 s at lower left, MAX at lower right
+  const A0 = 135, SWEEP = 270, R = 84;
+  const ang = (s) => (A0 + SWEEP * Math.min(1, Math.max(0, s / MAX))) * Math.PI / 180;
+  const pt = (s, r) => [Math.cos(ang(s)) * r, Math.sin(ang(s)) * r];
+  const arc = (s0, s1, r) => { const [x0, y0] = pt(s0, r), [x1, y1] = pt(s1, r); const big = (ang(s1) - ang(s0)) > Math.PI ? 1 : 0; return `M ${x0} ${y0} A ${r} ${r} 0 ${big} 1 ${x1} ${y1}`; };
+  const arcLen = (s0, s1, r) => r * (ang(s1) - ang(s0));
+
+  $('label').textContent = P.label || 'Shot time';
+  $('spd').textContent = SPEED > 1.05 ? `${PP.num(SPEED, Math.abs(SPEED - Math.round(SPEED)) < 0.05 ? 0 : 1)}× speed` : '';
+  $('tgt').innerHTML = `${P.target_label || 'Target'} <b>${T0}–${T1} s</b>`;
+  $('ratio').innerHTML = `${DOSE} g in · ${P.ratio_label || ''}`.replace(/(\d+(?:\.\d+)?)/g, '<b style="font-family:var(--pp-mono);font-weight:500">$1</b>');
+
+  let track, win, prog, ticks = [], tickLabels = [], dot;
+  // grams out by shot time: nothing until the first drops, then a steady, slightly rising flow to the yield at the shot's end
+  const grams = (s) => YIELD * Math.pow(Math.min(1, Math.max(0, (s - DROPS) / (SHOT - DROPS))), 1.15);
+
+  PP.scene({
+    duration: D,
+    setup() {
+      const W = PP.size.width, H = PP.size.height, up = H > W, r = document.documentElement.style;
+      const d = up ? Math.min(W * 0.56, H * 0.32) : Math.min(H * 0.46, W * 0.27);
+      const side = P.side === 'left' ? 0.22 : 0.78;
+      r.setProperty('--d', d + 'px');
+      r.setProperty('--cx', (up ? 50 : side * 100) + '%');
+      r.setProperty('--cy', (up ? 66 : 52) + '%');
+      r.setProperty('--sr', (d * 1.25) + 'px');
+      r.setProperty('--sm', Math.max(13, d * 0.052) + 'px');
+      r.setProperty('--xs', '10px');
+      r.setProperty('--big', (d * 0.165) + 'px');
+      r.setProperty('--mid', (d * 0.12) + 'px');
+      track = el('path', { d: arc(0, MAX, R), fill: 'none', stroke: 'var(--pp-ink)', 'stroke-opacity': 0.42, 'stroke-width': 1.1 });
+      const u = 200 / d;   // one screen pixel in the dial's own units (dash lengths are in these units, so strokes scale with the dial)
+      track.style.strokeWidth = 2 * u;
+      // the target window: a heavier band on the track
+      win = el('path', { d: arc(T0, T1, R), fill: 'none', stroke: 'var(--pp-ink)', 'stroke-opacity': 0.6, 'stroke-linecap': 'butt' });
+      win.style.strokeWidth = d * 0.05 * u;
+      prog = el('path', { d: arc(0, MAX, R), fill: 'none', stroke: 'var(--pp-accent)', 'stroke-linecap': 'butt' });
+      prog.style.strokeWidth = d * 0.022 * u;
+      prog.style.strokeDasharray = `${arcLen(0, MAX, R)} 999`;
+      for (let s = 0; s <= MAX; s += 5) {
+        const [x0, y0] = pt(s, R + 6), [x1, y1] = pt(s, R + (s % 10 === 0 ? 11 : 9));
+        const tk = el('line', { x1: x0, y1: y0, x2: x1, y2: y1, stroke: 'var(--pp-ink)', 'stroke-opacity': 0.55 }); tk.style.strokeWidth = '2px'; tk.style.vectorEffect = 'non-scaling-stroke';
+        ticks.push(tk);
+        if (s % 10 === 0) {
+          const [lx, ly] = pt(s, R + 21);
+          const tl = el('text', { x: lx, y: ly, class: 'tick-l', 'text-anchor': 'middle', 'dominant-baseline': 'central' }); tl.textContent = s; tickLabels.push(tl);
+        }
+      }
+      dot = el('circle', { r: 2.6, fill: 'var(--pp-accent)' });
+    },
+    frame(t) {
+      const outA = D - 0.6 * k;
+      const vis = PP.io(t, 0.05, outA, 0.5 * k, 0.45 * k);
+      $('scrim').style.opacity = PP.io(t, 0, outA + 0.1, 0.6, 0.5, PP.ease.inOut).toFixed(3);
+      // build in: rules draw, the track sweeps round, the readouts rise and settle
+      const rIn = PP.p(t, 0.05, 0.05 + 0.6 * k, PP.ease.outExpo), rOut = t > outA ? 1 - PP.ease.in(PP.clamp((t - outA) / (0.45 * k))) : 1;
+      $('rule1').style.transform = `scaleX(${rIn * rOut})`; $('rule2').style.transform = `scaleX(${PP.p(t, 0.2, 0.2 + 0.6 * k, PP.ease.outExpo) * rOut})`;
+      const trk = PP.p(t, 0.1, 0.1 + 0.7 * k, PP.ease.outQuart) * rOut, L = arcLen(0, MAX, R);
+      track.style.strokeDasharray = `${L * trk} 999`;
+      win.style.opacity = (PP.p(t, 0.45, 0.45 + 0.4 * k) * rOut).toFixed(3);
+      ticks.forEach((tk, i) => { tk.style.opacity = (PP.p(t, 0.15 + i * 0.04, 0.45 + i * 0.04) * rOut).toFixed(3); });
+      tickLabels.forEach((tl, i) => { tl.style.opacity = (0.7 * PP.p(t, 0.25 + i * 0.08, 0.55 + i * 0.08) * rOut).toFixed(3); });
+      for (const [id, a] of [['head', 0.15], ['centre', 0.3], ['out', 0.4]]) {
+        const p = PP.io(t, a, outA, 0.45 * k, 0.4 * k);
+        $(id).style.opacity = p.toFixed(3); $(id).style.transform = `${id === 'centre' ? 'translateY(-58%) ' : ''}translateY(${((1 - p) * 0.6).toFixed(3)}em)`;
+      }
+      // the count: linear (it is a clock), SPEED times real time, stopping on the shot length
+      const s = SHOT * PP.clamp((t - C0) / CS);
+      $('secs').textContent = s.toFixed(1);
+      $('grams').textContent = grams(s).toFixed(1);
+      prog.style.strokeDashoffset = 0;
+      prog.style.strokeDasharray = `${arcLen(0, Math.max(0.0001, s), R)} 999`;
+      prog.style.opacity = (s > 0 ? rOut : 0).toFixed(3);
+      const [dx, dy] = pt(s, R); dot.setAttribute('cx', dx); dot.setAttribute('cy', dy); dot.style.opacity = (s > 0 ? rOut : 0).toFixed(3);
+      // inside the window the target line comes up to full strength (the same accent stays on the arc only)
+      const inWin = s >= T0 && s <= T1;
+      $('tgt').style.opacity = (inWin ? 1 : 0.72).toFixed(2);
+      win.setAttribute('stroke-opacity', inWin ? 0.9 : 0.6);
+    },
+  });
+</script>
+</body></html>

@@ -1,0 +1,3 @@
+wikipedia-latte.png: a screenshot of the Wikipedia article "Latte" (https://en.wikipedia.org/wiki/Latte), text under CC BY-SA 4.0
+(https://creativecommons.org/licenses/by-sa/4.0/), images under their own licences as listed on the page. It is a sample screen for
+this scene only: put your own screen recording or screenshot in the scene's props.

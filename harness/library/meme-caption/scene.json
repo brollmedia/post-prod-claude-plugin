@@ -1,0 +1,12 @@
+{
+  "what": "Reaction meme in the TikTok / Reddit format: a plain bar with the caption right on top of the clip. Upright, bar and clip stack centred on a dark frame (video_aspect); wide, the clip fills the frame under the bar. Opaque.",
+  "width": 1080, "height": 1920, "fps": 30, "duration": 6, "alpha": false,
+  "props": {
+    "caption": "me finding out oat milk is 60p extra",
+    "video": "",
+    "focus_x": 0.55,
+    "focus_y": 0.5,
+    "video_aspect": 1.3333,
+    "duration": 6
+  }
+}
