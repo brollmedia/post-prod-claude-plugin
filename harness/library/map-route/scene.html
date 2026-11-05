@@ -5,31 +5,32 @@
   body { width: 100vw; height: 100vh; position: relative; }
   #fade { position: absolute; inset: 0; }
   svg { position: absolute; left: 0; top: 0; display: block; }
-  .land { fill: var(--pp-ink); fill-opacity: 0.045; stroke: var(--pp-ink); stroke-opacity: 0.34; stroke-linejoin: round; }
-  .home { fill-opacity: 0.11; stroke-opacity: 0.5; }
-  .grat { fill: none; stroke: var(--pp-ink); stroke-opacity: 0.08; }
+  .coast { fill: none; stroke: var(--pp-ink); stroke-opacity: 0.045; stroke-linejoin: round; stroke-linecap: round; }
+  .land { fill: color-mix(in oklab, var(--pp-ink) 15%, var(--pp-paper)); stroke: color-mix(in oklab, var(--pp-ink) 15%, var(--pp-paper)); stroke-linejoin: round; stroke-linecap: round; }
+  .home { fill: color-mix(in oklab, var(--pp-accent) 42%, var(--pp-paper)); stroke: color-mix(in oklab, var(--pp-accent) 42%, var(--pp-paper)); stroke-linejoin: round; stroke-linecap: round; }
   .route { fill: none; stroke: var(--pp-accent); stroke-linecap: round; stroke-linejoin: round; }
-  /* every piece of text sits on a knock-out of the paper colour, so no map line ever runs through it */
+  /* every piece of text sits on a knock-out of the paper colour, so no map shape ever runs behind the letters */
   .box { position: absolute; background: var(--pp-paper); white-space: nowrap; }
-  .title { font-family: var(--pp-display); font-weight: 520; color: var(--pp-ink); letter-spacing: -0.012em; line-height: 1.05; }
-  .tag { font-family: var(--pp-body); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-muted); line-height: 1.2; }
-  .day { font-family: var(--pp-mono); font-weight: 500; color: var(--pp-ink); line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
-  .mode { font-family: var(--pp-body); font-weight: 500; color: var(--pp-muted); line-height: 1.2; text-align: right; }
-  .name { font-family: var(--pp-body); font-weight: 600; color: var(--pp-ink); line-height: 1.15; }
-  .note { font-family: var(--pp-mono); font-weight: 400; color: var(--pp-ink); opacity: 0.72; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .title { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); letter-spacing: var(--pp-dt, -0.012em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); line-height: 1.08; }
+  .tag { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); opacity: 0.84; line-height: 1.2; }
+  .day { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); letter-spacing: var(--pp-dt, -0.01em); text-transform: var(--pp-dc, none); color: var(--pp-ink); line-height: 1; text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+  .mode { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); color: var(--pp-ink); opacity: 0.84; line-height: 1.2; text-align: right; }
+  .name { font-family: var(--pp-body); font-weight: var(--pp-bw, 600); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); line-height: 1.15; }
+  .note { font-family: var(--pp-mono); font-weight: 500; color: var(--pp-ink); opacity: 0.84; line-height: 1.2; font-variant-numeric: tabular-nums; }
 </style></head>
 <body>
 <div id="fade">
-  <svg id="map"><g id="cam"><g id="grat"></g><g id="land"></g><path id="route" class="route"></path></g></svg>
+  <svg id="map"><g id="cam"><g id="land"></g><path id="route" class="route"></path></g></svg>
   <svg id="marks"></svg>
   <div id="labels"></div>
 </div>
 <script src="../../pp-scene.js"></script>
 <script>
 (() => {
-  const P = PP.props, D = +P.duration || 8, $ = (id) => document.getElementById(id);
+  const P = PP.props, F = PP.f, E = PP.enter, D = +P.duration || 9, $ = (id) => document.getElementById(id);
+  const paint = PP.ground({ light: [0.2, 0.15], lift: 0.05 });
   const W = PP.size.width, H = PP.size.height, portrait = H > W;
-  const u = portrait ? W / 1080 : H / 1080;
+  const u = Math.min(W, H) / 1080;
   const NS = 'http://www.w3.org/2000/svg';
   const mk = (tag, at, parent) => { const e = document.createElementNS(NS, tag); for (const a in at) e.setAttribute(a, at[a]); parent.appendChild(e); return e; };
   const div = (cls, parent) => { const d = document.createElement('div'); d.className = cls; parent.appendChild(d); return d; };
@@ -74,75 +75,85 @@
   // the camera: fit the route (with room for labels), then push in slowly
   const all = legPts.flat(), bx = [Math.min(...all.map((p) => p[0])), Math.max(...all.map((p) => p[0]))], by = [Math.min(...all.map((p) => p[1])), Math.max(...all.map((p) => p[1]))];
   const cx = (bx[0] + bx[1]) / 2, cy = (by[0] + by[1]) / 2;
-  const fitW = portrait ? 0.64 : 0.62, fitH = portrait ? 0.42 : 0.7;
-  const s0 = Math.min((W * fitW) / (bx[1] - bx[0]), (H * fitH) / (by[1] - by[0])), push = 1.14;
-  const sx0 = W * 0.5, sy0 = H * 0.5;
-  const cam = (t) => { const k2 = PP.p(t, 0, D, PP.ease.inOut); return { s: s0 * (1 + (push - 1) * k2), x: cx + (bx[1] - cx) * 0.06 * k2, y: cy }; };
+  const fitW = portrait ? 0.56 : 0.5, fitH = portrait ? 0.42 : 0.62;
+  const s0 = Math.min((W * fitW) / (bx[1] - bx[0]), (H * fitH) / (by[1] - by[0])), push = 1.1;
+  const sx0 = W * (portrait ? 0.46 : 0.47), sy0 = H * (portrait ? 0.5 : 0.53);
+  const cam = (t) => { const k2 = PP.p(t, 0, D, PP.ease.camera); return { s: s0 * (1 + (push - 1) * k2), x: cx + (bx[1] - cx) * 0.05 * k2, y: cy }; };
   const toScreen = (p, c) => [sx0 + (p[0] - c.x) * c.s, sy0 + (p[1] - c.y) * c.s];
 
-  // text: title (top left), the day counter (top right), one label per stop
-  const lab = $('labels'), pad = [6 * u, 12 * u];
-  const safeX = W * 0.06, safeY = H * 0.06;
+  // text: title (top left), the day counter (bottom right), one label per stop
+  const lab = $('labels'), pad = [8 * u, 16 * u];
+  const safeX = W * (portrait ? 0.08 : 0.055), safeY = H * 0.06;
   const labelAt = (side, x, y, w, h, g) => ({ right: [x + g, y - h / 2], left: [x - g - w, y - h / 2], above: [mid(x, w), y - g - h], below: [mid(x, w), y + g],
     aboveleft: [x - 0.7 * g - w, y - 0.7 * g - h], belowleft: [x - 0.7 * g - w, y + 0.7 * g], aboveright: [x + 0.7 * g, y - 0.7 * g - h], belowright: [x + 0.7 * g, y + 0.7 * g] })[side];
   const mid = (x, w) => Math.min(W - safeX + pad[1] - w, Math.max(safeX - pad[1], x - w / 2));   // a label above or below a stop, kept inside title-safe
   const titleBox = div('box', lab); titleBox.style.padding = `${pad[0]}px ${pad[1]}px`; titleBox.style.left = `${safeX - pad[1]}px`; titleBox.style.top = `${safeY}px`;
-  const tag = div('tag', titleBox); tag.textContent = P.tag || `${stops.length} stops · ${span} days`; tag.style.fontSize = `${18 * u}px`; tag.style.marginBottom = `${10 * u}px`;
-  const title = div('title', titleBox); title.textContent = P.title || ''; title.style.fontSize = `${(portrait ? 58 : 54) * u}px`;
-  const dayBox = div('box', lab); dayBox.style.padding = `${pad[0]}px ${pad[1]}px`; dayBox.style.right = `${safeX - pad[1]}px`; dayBox.style.bottom = `${safeY}px`;
-  const day = div('day', dayBox); day.style.fontSize = `${54 * u}px`;
-  const mode = div('mode', dayBox); mode.style.fontSize = `${20 * u}px`; mode.style.marginTop = `${10 * u}px`;
-  const L = stops.map((st) => { const b = div('box', lab); b.style.padding = `${pad[0]}px ${pad[1]}px`; const n = div('name', b); n.textContent = st.name; n.style.fontSize = `${23 * u}px`; const o = div('note', b); o.textContent = st.note || ''; o.style.fontSize = `${18 * u}px`; o.style.marginTop = `${4 * u}px`; return b; });
+  const tag = div('tag', titleBox); tag.textContent = P.tag || `${stops.length} stops, ${span} days`; tag.style.fontSize = `${48 * u}px`; tag.style.marginBottom = `${8 * u}px`;
+  const title = div('title', titleBox); title.textContent = P.title || '';
+  const dayBox = div('box', lab); dayBox.style.padding = `${pad[0]}px ${pad[1]}px`; dayBox.style.right = `${safeX - pad[1]}px`; dayBox.style.bottom = `${H * (portrait ? 0.14 : 0.06)}px`;
+  const day = div('day', dayBox); day.style.fontSize = `${84 * u}px`;
+  const mode = div('mode', dayBox); mode.style.fontSize = `${48 * u}px`; mode.style.marginTop = `${10 * u}px`;
+  const L = stops.map((st) => { const b = div('box', lab); b.style.padding = `${pad[0]}px ${pad[1]}px`; const n = div('name', b); n.textContent = st.name; n.style.fontSize = `${48 * u}px`; if (P.show_notes && st.note) { const o = div('note', b); o.textContent = st.note; o.style.fontSize = `${48 * u}px`; o.style.marginTop = `${10 * u}px`; } return b; });
   const marks = $('marks');
-  const dots = stops.map((_, i) => ({ ring: mk('circle', { r: 7 * u, fill: 'var(--pp-paper)', stroke: 'var(--pp-ink)', 'stroke-width': Math.max(2, 2 * u) }, marks), core: mk('circle', { r: 3 * u, fill: i === stops.length - 1 ? 'var(--pp-accent)' : 'var(--pp-ink)' }, marks) }));
-  const head = mk('circle', { r: 4.5 * u, fill: 'var(--pp-accent)' }, marks);
+  const dots = stops.map((_, i) => ({ ring: mk('circle', { r: 8 * u, fill: 'var(--pp-paper)', stroke: 'var(--pp-ink)', 'stroke-width': 4 * u }, marks), core: mk('circle', { r: 3 * u, fill: i === stops.length - 1 ? 'var(--pp-accent)' : 'var(--pp-ink)' }, marks) }));
+  const head = mk('circle', { r: 9 * u, fill: 'var(--pp-accent)' }, marks);
+  const OUT = D - F(11);
 
   let placed = [];
   PP.scene({
     duration: D,
     async setup() {
-      const [land, countries] = await Promise.all(['../../vendor/ne_110m_land.geojson', '../../vendor/ne_110m_admin_0_countries.geojson'].map((f) => fetch(f).then((r) => r.json())));
+      const [land, countries] = await Promise.all(['../../vendor/ne_50m_land.geojson', '../../vendor/ne_110m_admin_0_countries.geojson'].map((f) => fetch(f).then((r) => r.json())));
       const g = $('land'), hl = new Set(P.highlight_countries || []);
-      const sw = Math.max(1, 1.25 * u);
-      for (const f of land.features) mk('path', { d: geomD(f.geometry), class: 'land', 'vector-effect': 'non-scaling-stroke', 'stroke-width': sw }, g);
-      for (const f of countries.features) if (hl.has(f.properties.ADMIN) || hl.has(f.properties.NAME)) mk('path', { d: geomD(f.geometry), class: 'land home', 'vector-effect': 'non-scaling-stroke', 'stroke-width': sw }, g);
-      const gr = $('grat'), y = (lat) => proj([0, lat])[1];
-      for (let lon = -180; lon <= 180; lon += 10) mk('path', { d: `M${lon},${y(-70)}L${lon},${y(80)}`, class: 'grat', 'vector-effect': 'non-scaling-stroke', 'stroke-width': Math.max(1, u) }, gr);
-      for (let lat = -60; lat <= 80; lat += 10) mk('path', { d: `M-180,${y(lat)}L180,${y(lat)}`, class: 'grat', 'vector-effect': 'non-scaling-stroke', 'stroke-width': Math.max(1, u) }, gr);
+      // The map data is coarse, so it is drawn as a poster rather than as a survey: flat land, its corners rounded off by a stroke of its own colour,
+      // and two rings of tint in the water off the coast, the way an engraved chart lines a shore. No outline, no graticule: thin lines are what show the facets.
+      const d = land.features.map((f) => geomD(f.geometry)).join('');
+      for (const [cls, w] of [['coast', 44 * u], ['coast', 22 * u], ['land', 2 * u]]) mk('path', { d, class: cls, 'vector-effect': 'non-scaling-stroke', 'stroke-width': w }, g);
+      for (const f of countries.features) if (hl.has(f.properties.ADMIN) || hl.has(f.properties.NAME)) mk('path', { d: geomD(f.geometry), class: 'home', 'vector-effect': 'non-scaling-stroke', 'stroke-width': 5 * u }, g);
+      PP.fit(title, W * (portrait ? 0.82 : 0.5), 76 * u, 56 * u);
       day.textContent = `Day ${days[days.length - 1]}`; day.style.minWidth = `${Math.ceil(day.getBoundingClientRect().width)}px`;   // the counter's box never changes width
-      $('route').setAttribute('vector-effect', 'non-scaling-stroke'); $('route').setAttribute('stroke-width', Math.max(2, 3 * u));
-      // place each label once, at the closest the camera gets: its preferred side, else the first side that stays inside
-      // title-safe and clear of the other labels, the title, the counter and every stop's dot
-      const c = cam(D), rect = (e) => e.getBoundingClientRect();
-      const obstacles = [titleBox, dayBox].map((e) => { const r = rect(e); return [r.left, r.top, r.right, r.bottom]; });
-      const scr = stops.map((s) => toScreen(proj(s.lonlat), c));
-      scr.forEach(([x, y2]) => obstacles.push([x - 10 * u, y2 - 10 * u, x + 10 * u, y2 + 10 * u]));
-      // the drawn route is an obstacle too: a label never covers the line
-      const route = []; legPaths.forEach((lp) => lp.s.forEach((p) => route.push(toScreen(p, c))));
-      const hit = (a, b, m = 6 * u) => a[0] < b[2] + m && a[2] > b[0] - m && a[1] < b[3] + m && a[3] > b[1] - m;
+      $('route').setAttribute('vector-effect', 'non-scaling-stroke'); $('route').setAttribute('stroke-width', Math.max(4, 7 * u));
+      // place each label once, on its preferred side, else the first side that stays inside title-safe and clear of the other labels, the title,
+      // the counter, every dot and the whole route. It is tried at both ends of the camera's move, so the push never brings a line into a label.
+      const rect = (e) => e.getBoundingClientRect();
+      const fixed = [titleBox, dayBox].map((e) => { const r = rect(e); return [r.left, r.top, r.right, r.bottom]; });
+      const hit = (a, b, m = 8 * u) => a[0] < b[2] + m && a[2] > b[0] - m && a[1] < b[3] + m && a[3] > b[1] - m;
+      const taken = [];
       placed = stops.map((s, i) => {
-        const r = rect(L[i]), w = r.width, h = r.height, [x, y2] = scr[i];
-        const pref = s.side || 'right', order = [pref, 'right', 'left', 'above', 'below', 'aboveleft', 'belowleft', 'aboveright', 'belowright'];
+        const r = rect(L[i]), w = r.width, h = r.height;
+        const pref = s.side || 'right', order = [pref, 'right', 'left', 'aboveright', 'belowright', 'aboveleft', 'belowleft', 'above', 'below'];
         let best = null;
-        for (const gap of [16, 34, 56]) for (const side of order) {
-          const [lx, ly] = labelAt(side, x, y2, w, h, gap * u), box = [lx, ly, lx + w, ly + h];
-          if (lx < safeX - pad[1] - 0.5 || ly < safeY - 0.5 || lx + w > W - safeX + pad[1] + 0.5 || ly + h > H - safeY + 0.5) continue;
-          // the line may touch a label only right at its own stop, where it has to leave from
-          const hits = obstacles.filter((o, j) => j !== 2 + i && hit(box, o)).length + route.filter(([px, py]) => Math.hypot(px - x, py - y2) > 26 * u && hit(box, [px, py, px, py], 3 * u)).length;
-          if (!best || hits < best.hits) best = { side, gap: gap * u, w, h, hits, box };
-          if (!hits) break;
+        for (const gap of [18, 34, 56, 84]) {
+          for (const side of order) {
+            let hits = 0, inside = true; const boxes = [];
+            for (const c of [cam(stopT[i]), cam(D)]) {
+              const [x, y2] = toScreen(proj(s.lonlat), c), [lx, ly] = labelAt(side, x, y2, w, h, gap * u), box = [lx, ly, lx + w, ly + h];
+              boxes.push(box);
+              if (lx < safeX - pad[1] - 0.5 || ly < safeY - 0.5 || lx + w > W - safeX + pad[1] + 0.5 || ly + h > H - safeY + 0.5) inside = false;
+              hits += fixed.filter((o) => hit(box, o)).length + taken.filter((o) => hit(box, o)).length;
+              stops.forEach((o, j) => { if (j !== i) { const [dx, dy] = toScreen(proj(o.lonlat), c); if (hit(box, [dx - 12 * u, dy - 12 * u, dx + 12 * u, dy + 12 * u])) hits++; } });
+              // the line may come near a label only right at its own stop, where it has to leave from
+              legPaths.forEach((lp) => lp.s.forEach((p) => { const [px, py] = toScreen(p, c); if (Math.hypot(px - x, py - y2) > (gap + 12) * u && hit(box, [px, py, px, py], 6 * u)) hits++; }));
+            }
+            if (!inside) continue;
+            if (!best || hits < best.hits) best = { side, gap: gap * u, w, h, hits, boxes };
+            if (!hits) break;
+          }
+          if (best && !best.hits) break;
         }
-        if (!best) best = { side: pref, gap: 16 * u, w, h, box: [0, 0, 0, 0] };
-        obstacles.push(best.box); return best;
+        if (!best) best = { side: pref, gap: 18 * u, w, h, hits: 0, boxes: [] };
+        taken.push(...best.boxes); return best;
       });
     },
     frame(t) {
+      paint(t);
       const c = cam(t);
       $('cam').setAttribute('transform', `translate(${sx0 - c.x * c.s} ${sy0 - c.y * c.s}) scale(${c.s})`);
-      $('fade').style.opacity = 1 - PP.p(t, D - 0.4, D, PP.ease.inOut);
-      $('map').style.opacity = PP.p(t, 0, 0.7, PP.ease.inOut);
-      titleBox.style.opacity = PP.p(t, 0.15, 0.6); titleBox.style.transform = `translateY(${(1 - PP.p(t, 0.15, 0.65)) * 12 * u}px)`;
-      dayBox.style.opacity = PP.p(t, 0.45, 0.9);
+      const gone = PP.ease.exit(PP.clamp((t - OUT) / F(10)));
+      $('fade').style.opacity = 1 - gone;
+      $('map').style.opacity = 1;
+      titleBox.style.opacity = PP.p(t, F(4), F(12)); titleBox.style.transform = `translateY(${(1 - PP.p(t, F(4), F(20), E)) * 16 * u}px)`;
+      dayBox.style.opacity = PP.p(t, F(12), F(24));
       // the line, leg by leg; the day counter and the mode follow the head
       const pts = []; let d = days[0], m = legs[0] ? legs[0].mode : '', hp = null;
       legs.forEach((leg, i) => {
@@ -155,18 +166,26 @@
       $('route').setAttribute('d', pts.length > 1 ? 'M' + pts.map((p) => `${p[0].toFixed(3)},${p[1].toFixed(3)}`).join('L') : '');
       day.textContent = `Day ${Math.floor(d + 1e-6)}`;
       mode.textContent = arrived ? 'Arrived' : m;
-      if (hp && !arrived) { const [hx, hy] = toScreen(hp, c); head.setAttribute('cx', hx); head.setAttribute('cy', hy); head.setAttribute('opacity', 1); } else head.setAttribute('opacity', 0);
+      if (hp && !arrived) { const [hx, hy] = toScreen(hp, c); head.setAttribute('cx', hx); head.setAttribute('cy', hy); head.setAttribute('opacity', PP.p(t, legT[0][0], legT[0][0] + F(3))); } else head.setAttribute('opacity', 0);
       stops.forEach((s, i) => {
-        const [x, y] = toScreen(proj(s.lonlat), c), a = PP.p(t, stopT[i], stopT[i] + 0.45);
+        const [x, y] = toScreen(proj(s.lonlat), c), a = PP.p(t, stopT[i], stopT[i] + F(12), E);
         dots[i].ring.setAttribute('cx', x); dots[i].ring.setAttribute('cy', y); dots[i].core.setAttribute('cx', x); dots[i].core.setAttribute('cy', y);
         dots[i].ring.setAttribute('opacity', a); dots[i].core.setAttribute('opacity', a);
-        dots[i].ring.setAttribute('r', 7 * u * (0.6 + 0.4 * a));
+        dots[i].ring.setAttribute('r', 8 * u * (0.6 + 0.4 * a));
         const pl = placed[i]; if (!pl) return;
-        const lift = (1 - PP.p(t, stopT[i] + 0.05, stopT[i] + 0.5)) * 8 * u;
+        const lift = (1 - PP.p(t, stopT[i] + F(2), stopT[i] + F(14), E)) * 12 * u;
         const at = labelAt(pl.side, x, y, pl.w, pl.h, pl.gap);
-        L[i].style.left = `${at[0]}px`; L[i].style.top = `${at[1] + lift}px`; L[i].style.opacity = PP.p(t, stopT[i] + 0.05, stopT[i] + 0.5);
+        L[i].style.left = `${at[0]}px`; L[i].style.top = `${at[1] + lift}px`; L[i].style.opacity = PP.p(t, stopT[i] + F(2), stopT[i] + F(14), E);
       });
     },
+    // a low bed under the journey, one tick per stop, and a small landing on arrival
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'pad', at: 0, dur: D, seed: 6, note: +P.note || 98, gain_db: -15 },
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      ...stopT.slice(1, -1).map((a, i) => ({ sfx: 'tick', hit: a + F(1), seed: 3 + i, note: 2100 + 160 * i, gain_db: -24 })),
+      { sfx: 'swell', hit: stopT[stopT.length - 1] + F(1), dur: 0.7, seed: 3, gain_db: -22 },
+      { sfx: 'impact', hit: stopT[stopT.length - 1] + F(1), seed: 7, size: 0.6, gain_db: -15 },
+    ]),
   });
 })();
 </script>

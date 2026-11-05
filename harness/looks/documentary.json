@@ -1,0 +1,45 @@
+{
+  "name": "documentary",
+  "for": "travel, history, nature, long-form stories, anything that should feel like a film",
+  "colours": {
+    "ink": "#F2F4EE",
+    "paper": "#123A52",
+    "accent": "#FF9E7A",
+    "accent2": "#7FB8A8",
+    "muted": "#8BA0A8"
+  },
+  "fonts": {
+    "display": "Instrument Serif",
+    "body": "Instrument Sans",
+    "mono": "JetBrains Mono"
+  },
+  "typeset": {
+    "display_weight": 400,
+    "display_tracking": "-0.015em",
+    "display_case": "none",
+    "body_weight": 560,
+    "body_tracking": "0.01em"
+  },
+  "pace": 1.2,
+  "motion": {
+    "character": "slow, weightless, long settles, a slow camera always drifting",
+    "enter": "glide",
+    "give": 0,
+    "stagger_frames": 5,
+    "main_frames": 24
+  },
+  "sound": "a low warm pad, a slow swell into the title, one soft hit; no ticks",
+  "grain": 0.05,
+  "vignette": 0.28,
+  "graphics": [
+    "title cards 60-75% empty",
+    "one accent per frame"
+  ],
+  "rules": [
+    "real places and dates, never decoration"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "wall"
+  }
+}

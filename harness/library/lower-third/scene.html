@@ -1,41 +1,95 @@
 <!doctype html>
 <html><head><meta charset="utf-8">
 <style>
+  /* Why solid plates and not a soft dark smudge: an overlay meets every kind of footage. A plate holds its contrast on a bright sky; a
+     gradient behind bare text does not, and reads as a stain. */
   html, body { margin: 0; background: transparent; overflow: hidden; }
   body { width: 100vw; height: 100vh; position: relative; }
-  /* sits in the title-safe area: 6% in from the left, its baseline 14% up from the bottom */
-  .lt { position: absolute; left: 6vw; bottom: 14vh; display: grid; grid-template-columns: auto; row-gap: 1.1vh; }
-  .rule { height: max(2px, 0.19vh); width: 100%; background: var(--pp-accent); transform-origin: left center; }
-  .mask { overflow: hidden; padding-bottom: 0.4vh; }
-  .name { font-family: var(--pp-display); font-weight: 560; font-size: 5.2vh; line-height: 1.05; color: var(--pp-ink); letter-spacing: -0.01em; white-space: nowrap; }
-  .role { font-family: var(--pp-body); font-weight: 500; font-size: 2.3vh; line-height: 1.2; color: var(--pp-ink); opacity: 0.86; white-space: nowrap; }
-  .tag { font-family: var(--pp-body); font-weight: 600; font-size: 1.55vh; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-accent); white-space: nowrap; }
-  /* legibility over any footage: a soft, low dark field behind the words (no box, no shadow on the letters) */
-  .scrim { position: absolute; left: 0; bottom: 0; width: 62vw; height: 42vh; background: radial-gradient(120% 100% at 0% 100%, rgba(0,0,0,0.55), rgba(0,0,0,0) 70%); }
+  .lt { position: absolute; display: flex; align-items: stretch; }
+  .lt.stack { flex-direction: column; align-items: flex-start; }
+  .bar { flex: none; background: var(--pp-accent); transform-origin: center bottom; }
+  .plate { position: relative; overflow: hidden; background: var(--pp-paper); border-radius: var(--pp-corner, 0); }
+  .wipe { position: absolute; inset: 0; background: var(--pp-accent); z-index: 1; }
+  .inner { position: relative; box-sizing: border-box; width: max-content; }
+  .mask { overflow: hidden; }
+  .name { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); letter-spacing: var(--pp-dt, -0.015em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); line-height: 1.12; white-space: nowrap; }
+  .role { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); line-height: 1.2; white-space: nowrap; }
 </style></head>
 <body>
-  <div class="scrim" id="scrim"></div>
   <div class="lt" id="lt">
-    <div class="mask"><div class="tag" id="tag"></div></div>
-    <div class="mask"><div class="name" id="name"></div></div>
-    <div class="rule" id="rule"></div>
-    <div class="mask"><div class="role" id="role"></div></div>
+    <div class="bar" id="bar"></div>
+    <div class="plate" id="plate"><div class="wipe" id="wipe"></div><div class="inner" id="inner">
+      <div class="mask"><div class="name" id="name"></div></div>
+      <div class="mask" id="roleBox"><div class="role" id="role"></div></div>
+    </div></div>
   </div>
 <script src="../../pp-scene.js"></script>
 <script>
-  const P = PP.props, $ = (id) => document.getElementById(id);
-  $('tag').textContent = P.tag || ''; $('name').textContent = P.name; $('role').textContent = P.role;
-  const D = +P.duration || 5, k = PP.pace;
+  const P = PP.props, $ = (id) => document.getElementById(id), F = PP.f, E = PP.enter;
+  const W = PP.size.width, H = PP.size.height, upright = H > W, u = Math.min(W, H) / 1080;
+  const D = +P.duration || 5, form = P.form || PP.style.forms?.['lower-third'] || 'stack';
+  $('name').textContent = P.name; $('role').textContent = P.role;
+
+  // stack: two plates, the name on the look's paper and the job on its accent, each opening behind a sweep of the accent.
+  // rail: one plate behind a thick accent bar, for a quieter look. Either way the name lands first and the job follows it.
+  const stacked = form !== 'rail';
+  if (stacked) {
+    const lt = $('lt'), second = document.createElement('div'), inner = document.createElement('div');
+    lt.className = 'lt stack'; $('bar').remove();
+    const accent = PP.style.colours?.accent || '#000000', on = PP.on(accent);
+    // a mid-tone accent carries neither ink nor paper at 7:1: the job goes on ink instead, and the accent stays in the sweep
+    second.className = 'plate'; second.id = 'plate2'; second.style.background = on.ratio >= 7 ? accent : 'var(--pp-ink)';
+    inner.className = 'inner'; inner.id = 'inner2'; inner.appendChild($('roleBox'));
+    second.appendChild(inner); lt.appendChild(second);
+    $('role').style.color = on.ratio >= 7 ? on.colour : 'var(--pp-paper)';
+    const w2 = document.createElement('div'); w2.className = 'wipe'; w2.id = 'wipe2'; w2.style.background = on.ratio >= 7 ? 'var(--pp-paper)' : accent; second.insertBefore(w2, inner);
+  }
+
+  // The beats, as frames at 30 fps. Each plate opens solid in the accent, then the colour sweeps off and uncovers the words: over
+  // them, never behind them, so no word ever sits half on one colour for longer than the edge takes to pass. Out is quicker than in,
+  // and in one piece.
+  const T = { bar: F(4), plate: F(7), name: F(14), second: F(14) };
+  const LEN = { bar: F(9), plate: F(15), second: F(13) }, SWEEP = F(9), OUT = D - F(16), OUTLEN = F(9);
+
+  const widths = {};
   PP.scene({
     duration: D,
-    frame(t) {
-      const out = D - 0.6 * k;                       // everything leaves in the last 0.6 s
-      const rule = PP.io(t, 0.15, out, 0.55 * k, 0.4 * k, PP.ease.outExpo);
-      $('rule').style.transform = `scaleX(${rule})`;
-      const rise = (el, a) => { const p = PP.io(t, a, out, 0.5 * k, 0.35 * k); el.style.transform = `translateY(${(1 - p) * 105}%)`; };
-      rise($('tag'), 0.25); rise($('name'), 0.35); rise($('role'), 0.5);
-      $('scrim').style.opacity = PP.io(t, 0, out + 0.15, 0.6, 0.45, PP.ease.inOut);
+    setup() {
+      const maxW = W * (upright ? 0.82 : 0.45);                     // never more than this much of the frame
+      const pad = [26 * u, 38 * u, 24 * u, 30 * u], pad2 = [12 * u, 30 * u, 14 * u, 30 * u];
+      $('inner').style.padding = pad.map((v) => `${Math.round(v)}px`).join(' ');
+      if (stacked) $('inner2').style.padding = pad2.map((v) => `${Math.round(v)}px`).join(' ');
+      PP.fit($('name'), maxW - pad[1] - pad[3], (stacked ? 84 : 76) * u, 56 * u);    // the name: smaller only if it must be
+      PP.fit($('role'), maxW - pad[1] - pad[3], (stacked ? 52 : 48) * u, 48 * u);    // 48 px is the phone floor: nothing the viewer must read goes under it
+      if (!stacked) { $('name').parentNode.style.marginBottom = `${Math.round(11 * u)}px`; $('bar').style.width = `${Math.round(10 * u)}px`; }  // thick enough to survive 4:2:0 and YouTube's bitrate
+      widths.a = Math.ceil($('inner').getBoundingClientRect().width);
+      if (stacked) widths.b = Math.ceil($('inner2').getBoundingClientRect().width);
+      // over the player's controls and captions is no place for it: keep above 0.82 H, and on the side away from the face
+      const lt = $('lt'); if (stacked) lt.style.gap = `${Math.round(8 * u)}px`; lt.style.bottom = `${Math.round(H * (upright ? 0.36 : 0.18))}px`;
+      lt.style[P.side === 'right' ? 'right' : 'left'] = `${Math.round(W * (upright ? 0.1 : 0.05))}px`;
     },
+    frame(t) {
+      const out = PP.ease.exit(PP.clamp((t - OUT) / OUTLEN));       // 0 until it leaves, 1 when gone
+      const open = PP.p(t, T.plate, T.plate + LEN.plate, E) * (1 - out);
+      $('plate').style.width = `${Math.round(widths.a * open * 10) / 10}px`;
+      $('wipe').style.transform = `translateX(${PP.p(t, T.name, T.name + SWEEP, PP.ease.move) * 101}%)`;
+      if (stacked) {
+        const open2 = PP.p(t, T.second, T.second + LEN.second, E) * (1 - out);
+        $('plate2').style.width = `${Math.round(widths.b * open2 * 10) / 10}px`;
+        $('plate2').style.visibility = open2 > 0.002 ? 'visible' : 'hidden';
+        $('wipe2').style.transform = `translateX(${PP.p(t, T.second + F(7), T.second + F(7) + SWEEP, PP.ease.move) * 101}%)`;
+      } else {
+        // the bar arrives first and leaves last: it is the thing the plate seems to come out of
+        const barIn = PP.p(t, T.bar, T.bar + LEN.bar, E), barOut = PP.ease.exit(PP.clamp((t - OUT - F(5)) / F(7)));
+        $('bar').style.transform = `scaleY(${barIn * (1 - barOut)})`;
+      }
+    },
+    // Sound in a graphic is a gesture, not a noise: one soft move in, one tick as the name lands, quieter still going out.
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'whoosh', hit: T.plate + LEN.plate * 0.3, dur: 0.36, seed: 4, gain_db: -22, low: 500, high: 4200, dir: 'right' },
+      { sfx: 'tick', hit: T.name + SWEEP * 0.6, seed: 2, gain_db: -27, note: 1900 },
+      { sfx: 'whoosh', hit: OUT + OUTLEN * 0.5, dur: 0.26, seed: 7, gain_db: -27, low: 700, high: 3600, dir: 'left' },
+    ]),
   });
 </script>
 </body></html>

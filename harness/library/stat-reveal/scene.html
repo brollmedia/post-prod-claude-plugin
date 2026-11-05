@@ -1,0 +1,135 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
+  body { width: 100vw; height: 100vh; position: relative; }
+  /* one shared left edge: everything hangs from it. A left-anchored stat reads as designed; centred everything reads as a template. */
+  .col { position: absolute; display: flex; flex-direction: column; }
+  .mask { overflow: hidden; }
+  .label { font-family: var(--pp-body); font-weight: var(--pp-bw, 600); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); opacity: 0.92; white-space: nowrap; line-height: 1.2; }
+  .hero { font-family: var(--pp-display); font-weight: var(--pp-dw, 700); letter-spacing: var(--pp-dt, -0.02em); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); white-space: nowrap; line-height: 0.98; font-variant-numeric: lining-nums; transform-origin: left bottom; }
+  .row { display: flex; align-items: baseline; justify-content: space-between; }
+  .bars { position: relative; }
+  .bar { position: relative; }
+  .track { background: color-mix(in oklab, var(--pp-ink) 9%, transparent); }
+  .fill { height: 100%; transform-origin: left center; }
+  .fill.a { background: var(--pp-ink); opacity: 0.5; }
+  .fill.b { background: var(--pp-accent); }
+  .cap { font-family: var(--pp-body); font-weight: var(--pp-bw, 600); color: var(--pp-ink); opacity: 0.92; white-space: nowrap; line-height: 1.2; }
+  .cap b { font-weight: 700; font-variant-numeric: tabular-nums; opacity: 1; }
+  .times { font-family: var(--pp-display); font-weight: var(--pp-dw, 700); letter-spacing: var(--pp-dt, -0.02em); color: var(--pp-accent); white-space: nowrap; line-height: 1; transform-origin: right bottom; }
+</style></head>
+<body>
+  <div class="col" id="col">
+    <div class="mask"><div class="label" id="label"></div></div>
+    <div class="row" id="heroRow">
+      <div class="mask"><div class="hero" id="hero"></div></div>
+      <div class="times" id="times"></div>
+    </div>
+    <div class="bars" id="bars">
+      <div class="mask"><div class="cap" id="capA"></div></div>
+      <div class="track" id="trackA"><div class="bar" id="barA"><div class="fill a" id="fillA"></div></div></div>
+      <div class="mask"><div class="cap" id="capB"></div></div>
+      <div class="track" id="trackB"><div class="bar" id="barB"><div class="fill b" id="fillB"></div></div></div>
+    </div>
+  </div>
+<script src="../../pp-scene.js"></script>
+<script>
+(() => {
+  const P = PP.props, $ = (id) => document.getElementById(id), F = PP.f, E = PP.enter;
+  const W = PP.size.width, H = PP.size.height, upright = H > W, u = Math.min(W, H) / 1080, D = +P.duration || 6;
+  const from = +P.from, to = +P.to, ratio = to / from;
+  const fmt = (n) => PP.num(Math.round(n));
+  const times = P.times === false ? '' : `${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)}×`;
+  $('label').textContent = P.label || '';
+  $('capA').innerHTML = `${P.from_label || 'Before'} &nbsp;<b>${fmt(from)}</b>`;
+  $('capB').innerHTML = `${P.to_label || 'After'} &nbsp;<b>${fmt(to)}</b>`;
+  $('times').textContent = times;
+  const paint = PP.ground({ light: [0.15, 0.1] });
+  let setHero = () => {};
+  // the curve (props.form: bars for the two bars instead). With only two numbers its shape between them is an illustration, so only the ends
+  // are labelled. props.points, real values from first to last, draws the true line.
+  const curve = (P.form || 'curve') === 'curve', NS = 'http://www.w3.org/2000/svg';
+  const pts = Array.isArray(P.points) && P.points.length > 1 ? P.points.map(Number) : null;
+  const fraction = (q) => { if (!pts) return q ** 2.6; const x = q * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(x)); return (PP.lerp(pts[i], pts[i + 1], x - i) - from) / (to - from); };
+  let chart = null;
+
+  // The story, in order: where it started (held long enough to register), the climb, the landing, the payoff. The count and the bar
+  // share one curve, so the eye reads them as one thing. A number is data: it lands dead on, no overshoot.
+  // the label is on screen from frame 0, the thumbnail on social
+  const A = { label: -1, hero: F(8), bars: F(14), count: F(30) }, COUNT = 1.6;
+  const CLIMB = PP.bezier(0.35, 0, 0.12, 1);
+  const LAND = A.count + COUNT, PAY = LAND + F(7), OUT = D - F(14);
+
+  PP.scene({
+    duration: D,
+    setup() {
+      const side = W * (upright ? 0.1 : 0.05), inner = W - side * 2;
+      const c = $('col'); c.style.left = `${side}px`; c.style.width = `${inner}px`; 
+      $('label').style.fontSize = `${Math.round((upright ? 54 : 56) * u)}px`;
+      const hero = $('hero');
+      // the hero is the widest it can be beside its payoff, and at most 34% of the frame height
+      hero.textContent = fmt(to);
+      PP.fit(hero, inner * (upright ? 1 : times ? 0.72 : 1), H * (upright ? 0.15 : 0.34), 120 * u);
+      setHero = PP.digits(hero);
+      $('times').style.fontSize = `${Math.round(parseFloat(hero.style.fontSize) * 0.62)}px`;
+      $('heroRow').style.marginTop = `${Math.round(18 * u)}px`;
+      // on an upright frame the payoff goes under the number: there is no room beside it
+      if (upright) { $('heroRow').style.flexDirection = 'column'; $('heroRow').style.alignItems = 'flex-start'; $('heroRow').style.rowGap = `${Math.round(18 * u)}px`; $('times').style.transformOrigin = 'left bottom'; }
+      $('bars').style.marginTop = `${Math.round((upright ? 90 : 34) * u)}px`;
+      for (const id of ['capA', 'capB']) $(id).style.fontSize = `${Math.round(50 * u)}px`;
+      if (curve) {
+        // to scale from zero, so a small start looks small. The line and the fill are one path each, opened from the left by a clip
+        const h = Math.round(H * (upright ? 0.3 : 0.26)), sw = Math.round(8 * u), yOf = (v) => h - (v / to) * (h - sw);
+        const line = Array.from({ length: 81 }, (_, i) => { const q = i / 80; return [q * inner, yOf(from + (to - from) * fraction(q))]; });
+        const d = line.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+        const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('width', inner); svg.setAttribute('height', h + sw); svg.style.cssText = 'display:block;overflow:visible';
+        svg.innerHTML = `<defs><clipPath id="open"><rect id="openR" x="-20" y="-40" width="0" height="${h + 80}"/></clipPath></defs><rect x="0" y="${h}" width="${inner}" height="${Math.max(4, Math.round(4 * u))}" fill="var(--pp-ink)" opacity="0.28"/><g clip-path="url(#open)"><path d="${d} L${inner} ${h} L0 ${h} Z" fill="var(--pp-accent)" opacity="0.16"/><path d="${d}" fill="none" stroke="var(--pp-accent)" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/></g><circle id="head" r="${Math.round(13 * u)}" fill="var(--pp-accent)"/>`;
+        const row = document.createElement('div'), ma = $('capA').parentNode, mb = $('capB').parentNode, b = $('bars');
+        row.className = 'row'; row.style.marginTop = `${Math.round(16 * u)}px`;
+        b.textContent = ''; b.append(svg, row); row.append(ma, mb);
+        chart = { line, inner };
+      } else {
+        $('capB').parentNode.style.marginTop = `${Math.round(26 * u)}px`;
+        const th = Math.round(44 * u); for (const id of ['barA', 'barB', 'trackA', 'trackB']) $(id).style.height = `${th}px`;
+        $('trackA').style.marginTop = $('trackB').style.marginTop = `${Math.round(12 * u)}px`;
+        // to scale, always: the small bar's smallness is the point. A bar under 8 px would vanish in compression, so it stops there.
+        $('barA').style.width = `${Math.max(8 * u, inner * (from / to))}px`; $('barB').style.width = `${inner}px`;
+      }
+      // the whole group sits in the optical middle of the frame: a touch above true centre
+      c.style.top = `${Math.round((H - c.getBoundingClientRect().height) * 0.46)}px`;
+    },
+    frame(t) {
+      paint(t);
+      const out = PP.ease.exit(PP.clamp((t - OUT) / F(12)));
+      $('col').style.opacity = 1 - out; $('col').style.transform = `translateY(${-out * 26 * u}px)`;
+      const rise = (el, a, d = F(15)) => { el.style.transform = `translateY(${(1 - PP.p(t, a, a + d, E)) * 104}%)`; };
+      rise($('label'), A.label); rise($('hero'), A.hero, F(18)); rise($('capA'), A.bars, F(12)); rise($('capB'), curve ? LAND - F(4) : A.bars + F(3), F(12));
+      if (!curve) $('fillA').style.transform = `scaleX(${PP.p(t, A.bars + F(2), A.bars + F(14), E)})`;
+      // the climb: fast at first, slowing into the final digits so the last ones can be read
+      const p = PP.p(t, A.count, LAND, CLIMB);
+      // the number and the line are one thing: the count reads off the height of the line's head
+      setHero(fmt(from + (to - from) * (curve ? fraction(p) : p)), PP.p(t, LAND, LAND + F(8), PP.ease.snap));
+      if (curve) {
+        const i = p * 80, a = chart.line[Math.floor(i)], b = chart.line[Math.min(80, Math.floor(i) + 1)], f = i - Math.floor(i);
+        $('openR').setAttribute('width', p * chart.inner + 20);
+        const head = $('head'); head.setAttribute('cx', PP.lerp(a[0], b[0], f)); head.setAttribute('cy', PP.lerp(a[1], b[1], f)); head.setAttribute('opacity', PP.p(t, A.bars, A.bars + F(6), E));
+      } else {
+        $('fillB').style.transform = `scaleX(${Math.max(p, from / to)})`;
+        $('fillB').style.opacity = PP.p(t, A.bars + F(6), A.bars + F(12));
+      }
+      // the payoff, the one thing allowed a little life: it is words, not data
+      const s = PP.give ? PP.spring(t, PAY, 0.45, PP.give) : PP.p(t, PAY, PAY + F(14), E);
+      $('times').style.opacity = PP.p(t, PAY, PAY + F(4));
+      $('times').style.transform = `scale(${0.92 + 0.08 * s})`;
+    },
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'rollup', hit: LAND, dur: COUNT, seed: 3, gain_db: -19 },
+      { sfx: 'swell', hit: LAND, dur: 0.7, seed: 2, gain_db: -18 },
+      { sfx: 'impact', hit: LAND, seed: 5, size: 0.8, gain_db: -9 },
+      { sfx: 'tick', hit: PAY, seed: 4, note: 2300, gain_db: -20 },
+    ]),
+  });
+})();
+</script>
+</body></html>

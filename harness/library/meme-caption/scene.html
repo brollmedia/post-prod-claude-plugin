@@ -6,9 +6,9 @@
   /* the meme format: a plain light bar with dark type, the clip right under it. Fill: the clip takes the rest of the frame.
      Stacked (upright, video_aspect set): bar and clip are one block, centred on the dark frame, so a wide clip is not cropped to a sliver. */
   .bar { position: absolute; left: 0; right: 0; top: var(--top); height: var(--barh); background: var(--pp-ink); }
-  .cap { position: absolute; left: var(--mx); right: var(--mx); bottom: var(--pb); font-family: var(--pp-body); font-weight: 500;
-         font-size: var(--fs); line-height: 1.22; letter-spacing: -0.005em; color: var(--pp-paper); text-wrap: pretty; }
-  video { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--barh)); width: 100%; height: var(--vh); object-fit: cover; display: block; background: var(--pp-paper); }
+  .cap { position: absolute; left: var(--mx); right: var(--mx); bottom: var(--pb); font-family: var(--pp-body); font-weight: var(--pp-bw, 560);
+         font-size: var(--fs); line-height: 1.22; letter-spacing: var(--pp-bt, -0.005em); color: var(--pp-paper); text-wrap: pretty; }
+  video { position: absolute; left: 0; right: 0; top: calc(var(--top) + var(--barh)); width: 100%; height: var(--vh); object-fit: cover; display: block; background: color-mix(in oklab, var(--pp-ink) 12%, var(--pp-paper)); }
 </style></head>
 <body>
   <div class="bar" id="bar"><div class="cap" id="cap"></div></div>

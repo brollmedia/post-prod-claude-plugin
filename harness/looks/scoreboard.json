@@ -1,0 +1,45 @@
+{
+  "name": "scoreboard",
+  "for": "sport, leaderboards, stats, rankings, finance: dense numbers that must stay calm",
+  "colours": {
+    "ink": "#F2F7F3",
+    "paper": "#0A4A34",
+    "accent": "#FFD21F",
+    "accent2": "#FF6B57",
+    "muted": "#8FB5A4"
+  },
+  "fonts": {
+    "display": "Oswald",
+    "body": "Archivo",
+    "mono": "IBM Plex Mono"
+  },
+  "typeset": {
+    "display_weight": 620,
+    "display_tracking": "0.005em",
+    "display_case": "uppercase",
+    "body_weight": 600,
+    "body_tracking": "0.02em"
+  },
+  "pace": 0.85,
+  "motion": {
+    "character": "snaps on rails: plates wipe in, numbers roll, rows swap; nothing floats",
+    "enter": "snap",
+    "give": 0,
+    "stagger_frames": 3,
+    "main_frames": 12
+  },
+  "sound": "one tick per change, a rollup under counters",
+  "grain": 0.02,
+  "vignette": 0,
+  "graphics": [
+    "tabular figures on every number",
+    "colour means up, down or the leader"
+  ],
+  "rules": [
+    "no overshoot on data"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "block"
+  }
+}

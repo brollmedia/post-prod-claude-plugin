@@ -1,6 +1,6 @@
 {
-  "what": "Waterfall chart: where a price goes, cost by cost, drawn in order; the last row (the profit) is the punchline in the accent. Opaque.",
-  "width": 1920, "height": 1080, "fps": 30, "duration": 7, "alpha": false,
+  "what": "Waterfall chart: where a price goes, cost by cost, drawn in order; the last row (the profit) takes the accent and the punchline lands. Six rows read best; nine still fit. Opaque.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 12.5, "alpha": false,
   "props": {
     "title": "Where your £5.00 goes",
     "punchline": "Profit on a £5.00 latte: 3p.",
@@ -9,15 +9,12 @@
     "rows": [
       { "label": "Rent", "value": 1.25 },
       { "label": "Wages", "value": 1.55 },
-      { "label": "Milk", "value": 0.45 },
-      { "label": "Coffee beans", "value": 0.40 },
-      { "label": "Cup and lid", "value": 0.18 },
-      { "label": "Card fees", "value": 0.09 },
-      { "label": "Energy", "value": 0.22 },
+      { "label": "Milk and beans", "value": 0.85 },
+      { "label": "Cup, fees, energy", "value": 0.49 },
       { "label": "VAT", "value": 0.83 },
       { "label": "Profit", "value": 0.03, "highlight": true }
     ],
     "source": "Grounds estimate, UK independent café, 2026",
-    "duration": 7
+    "duration": 12.5
   }
 }

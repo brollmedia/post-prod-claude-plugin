@@ -1,0 +1,87 @@
+[
+ {
+  "face": "Anton",
+  "kind": "heavy condensed",
+  "feel": "posters, headlines, loud"
+ },
+ {
+  "face": "Oswald",
+  "kind": "condensed gothic",
+  "feel": "sport, signage, tickets"
+ },
+ {
+  "face": "Archivo",
+  "kind": "grotesque, wide weights",
+  "feel": "blunt, editorial, industrial"
+ },
+ {
+  "face": "Bricolage Grotesque",
+  "kind": "quirky grotesque",
+  "feel": "human, handmade, cheeky"
+ },
+ {
+  "face": "Hanken Grotesk",
+  "kind": "neutral grotesque",
+  "feel": "quiet, modern, product"
+ },
+ {
+  "face": "Public Sans",
+  "kind": "plain sans",
+  "feel": "civic, institutional"
+ },
+ {
+  "face": "Instrument Sans",
+  "kind": "crisp sans",
+  "feel": "precise, contemporary"
+ },
+ {
+  "face": "Figtree",
+  "kind": "friendly geometric",
+  "feel": "warm, clear, teaching"
+ },
+ {
+  "face": "Newsreader",
+  "kind": "text serif",
+  "feel": "newspapers, long reads"
+ },
+ {
+  "face": "Instrument Serif",
+  "kind": "condensed display serif",
+  "feel": "film titles, fashion"
+ },
+ {
+  "face": "Fraunces",
+  "kind": "soft old-style serif",
+  "feel": "food, craft, nostalgia"
+ },
+ {
+  "face": "Young Serif",
+  "kind": "heavy old-style serif",
+  "feel": "books, heritage, warmth"
+ },
+ {
+  "face": "Special Elite",
+  "kind": "typewriter",
+  "feel": "case files, archives"
+ },
+ {
+  "face": "Caveat",
+  "kind": "handwriting",
+  "feel": "notes and marks, never a title"
+ },
+ {
+  "face": "IBM Plex Mono",
+  "kind": "mono",
+  "feel": "data, terminals, labels"
+ },
+ {
+  "face": "Geist Mono",
+  "kind": "mono",
+  "feel": "software, interface"
+ },
+ {
+  "face": "JetBrains Mono",
+  "kind": "mono",
+  "feel": "code; a model reaches for this, so only when the subject is code"
+ }
+]

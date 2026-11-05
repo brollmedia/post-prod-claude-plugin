@@ -1,0 +1,5 @@
+{
+  "what": "Stat reveal, full frame: where it started, a count that climbs along a line drawn to scale, a hit as it lands, then the multiple as the payoff. Give props.points (real values, first to last) when you have them: with only two numbers the line is an illustration. props.form: bars for two to-scale bars. Everything hangs off one left edge. For a growth or before-and-after number.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 6, "alpha": false,
+  "props": { "label": "Monthly listeners, in 2 years", "from": 3400, "to": 212000, "from_label": "Start", "to_label": "Now", "duration": 6.5 }
+}

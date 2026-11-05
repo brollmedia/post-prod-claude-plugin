@@ -1,0 +1,5 @@
+{
+  "what": "A title over footage: one or two lines at title size, each on its own solid plate so it holds on any picture, with a small kicker on the accent. Each plate opens behind a sweep of colour. Sits low on the side away from the face (props.side). Transparent, for over footage. Use a full-frame title scene when the title should own the frame.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 5, "alpha": true,
+  "props": { "kicker": "Part two", "lines": ["Nine months", "later"], "side": "left", "duration": 5 }
+}

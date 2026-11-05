@@ -1,0 +1,5 @@
+Every font in this folder is under the SIL Open Font License 1.1 (https://openfontlicense.org), and is bundled here unchanged
+as Latin subsets from Fontsource / Google Fonts: Anton, Archivo, Bricolage Grotesque, Caveat, Figtree, Fraunces, Geist Mono,
+Hanken Grotesk, IBM Plex Mono, Instrument Sans, Instrument Serif, JetBrains Mono, Newsreader, Oswald, Public Sans, Special Elite,
+Young Serif. Copyright stays with each font's authors; see github.com/google/fonts/tree/main/ofl/<family>. They may be embedded in
+video and used commercially. They may not be sold by themselves.

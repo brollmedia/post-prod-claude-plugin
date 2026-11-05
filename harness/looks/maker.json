@@ -1,0 +1,45 @@
+{
+  "name": "maker",
+  "for": "creators, vlogs, personal brands, how-tos: warm, loud, human",
+  "colours": {
+    "ink": "#1A1408",
+    "paper": "#FFC21A",
+    "accent": "#D42C14",
+    "accent2": "#123C69",
+    "muted": "#6B5310"
+  },
+  "fonts": {
+    "display": "Bricolage Grotesque",
+    "body": "Figtree",
+    "mono": "IBM Plex Mono"
+  },
+  "typeset": {
+    "display_weight": 760,
+    "display_tracking": "-0.03em",
+    "display_case": "none",
+    "body_weight": 600,
+    "body_tracking": "0"
+  },
+  "pace": 0.9,
+  "motion": {
+    "character": "lively: small springs, things land with a little give, a hand-drawn underline",
+    "enter": "enter",
+    "give": 0.22,
+    "stagger_frames": 3,
+    "main_frames": 14
+  },
+  "sound": "soft pops and taps, one bright shimmer on the payoff",
+  "grain": 0.03,
+  "vignette": 0,
+  "graphics": [
+    "one solid colour field, no gradients",
+    "a hand-drawn mark for emphasis"
+  ],
+  "rules": [
+    "sound like a person"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "block"
+  }
+}

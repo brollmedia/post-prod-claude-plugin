@@ -1,5 +1,5 @@
 {
-  "what": "Join transition: a darkroom-brown panel led by a thin amber band sweeps across on a slant, covers the frame at its midpoint (the cut happens under it), then sweeps off. Transparent, for compose's scene transitions.",
+  "what": "Join transition: a panel in the look's paper colour, led by a band of its accent, sweeps across on a slant, covers the frame at its midpoint (the cut happens under it), then sweeps off. Transparent, for compose's scene transitions.",
   "width": 1920, "height": 1080, "fps": 30, "duration": 0.8, "alpha": true,
   "props": { "duration": 0.8, "slant": 14, "band": 0.014, "hold": 0.1, "direction": "right" }
 }

@@ -1,0 +1,45 @@
+{
+  "name": "casefile",
+  "for": "true crime, mysteries, investigations, tension",
+  "colours": {
+    "ink": "#E8E4DA",
+    "paper": "#0C0C0B",
+    "accent": "#D1301F",
+    "accent2": "#8A8578",
+    "muted": "#7D796F"
+  },
+  "fonts": {
+    "display": "Oswald",
+    "body": "Special Elite",
+    "mono": "Special Elite"
+  },
+  "typeset": {
+    "display_weight": 500,
+    "display_tracking": "0.06em",
+    "display_case": "uppercase",
+    "body_weight": 400,
+    "body_tracking": "0.01em"
+  },
+  "pace": 1.25,
+  "motion": {
+    "character": "slow and heavy: type-on, a slow push, long holds, cuts to black",
+    "enter": "glide",
+    "give": 0,
+    "stagger_frames": 6,
+    "main_frames": 26
+  },
+  "sound": "a low drone, one sub hit, typewriter ticks, no music stings",
+  "grain": 0.08,
+  "vignette": 0.35,
+  "graphics": [
+    "redaction bars and real documents",
+    "red only on the one thing"
+  ],
+  "rules": [
+    "never decorate a real person's story"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "wall"
+  }
+}

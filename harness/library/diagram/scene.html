@@ -3,25 +3,25 @@
 <style>
   html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
   body { width: 100vw; height: 100vh; position: relative; }
-  .abs { position: absolute; }
   .mask { position: absolute; overflow: hidden; padding-bottom: 0.15em; }
-  .tag { font-family: var(--pp-body); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-muted); white-space: nowrap; line-height: 1.2; }
-  .label { white-space: nowrap; line-height: 1.15; color: var(--pp-ink); text-align: center; }
+  .tag { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); opacity: 0.84; white-space: nowrap; line-height: 1.2; }
+  .label { white-space: nowrap; line-height: 1.15; color: var(--pp-ink); }
   .label .v { font-family: var(--pp-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
-  .label .w { font-family: var(--pp-body); font-weight: 500; }
-  .closing { font-family: var(--pp-display); font-weight: 480; color: var(--pp-ink); letter-spacing: -0.012em; white-space: nowrap; line-height: 1.1; }
+  .label .w { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); }
+  .closing { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); letter-spacing: var(--pp-dt, -0.012em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); white-space: nowrap; line-height: 1.1; }
   svg { position: absolute; overflow: visible; }
   .ico * { fill: none; stroke: var(--pp-ink); stroke-linecap: round; stroke-linejoin: round; }
-  .conn { fill: none; stroke: var(--pp-muted); stroke-linecap: round; stroke-linejoin: round; }
+  .conn { fill: none; stroke: var(--pp-ink); stroke-opacity: 0.5; stroke-linecap: round; stroke-linejoin: round; }
+  .und { position: absolute; background: var(--pp-accent); transform-origin: left center; transform: scaleX(0); }
 </style></head>
 <body>
 <div id="root"></div>
 <script src="../../pp-scene.js"></script>
 <script>
 (() => {
-  const P = PP.props, k = PP.pace, D = +P.duration || 8;
+  const P = PP.props, F = PP.f, E = PP.enter, D = +P.duration || 8;
   const W = PP.size.width, H = PP.size.height, portrait = H > W;
-  const u = portrait ? W / 1080 : H / 1080;
+  const u = Math.min(W, H) / 1080;
   const root = document.getElementById('root'), NS = 'http://www.w3.org/2000/svg';
   const div = (cls, parent = root) => { const d = document.createElement('div'); d.className = cls; parent.appendChild(d); return d; };
   const svg = (tag, at, parent) => { const e = document.createElementNS(NS, tag); for (const a in at) e.setAttribute(a, at[a]); parent.appendChild(e); return e; };
@@ -70,83 +70,99 @@
     ],
   };
 
-  // layout: a row across a wide frame, a column down a tall one
+  // layout: a row across a wide frame, a column down a tall one, everything hung from one left edge
   const steps = P.steps || [], n = steps.length;
-  const ic = (portrait ? 150 : 172) * u, labS = (portrait ? 40 : 40) * u, gapI = 30 * u;
-  const tagS = 22 * u, closeS = (portrait ? 64 : 72) * u;
-  const pos = [];
-  let tagY, closeY, labelSide;
-  if (!portrait) {
-    const mx = 130 * u, colW = (W - 2 * mx) / n;
-    // the block (tag, icons, labels, closing line) sits centred in the frame
-    const above = tagS * 1.2 + 110 * u + ic / 2, below = ic / 2 + 34 * u + labS * 1.2 + 120 * u + closeS * 1.1, cy = H / 2 + (above - below) / 2;
-    for (let i = 0; i < n; i++) pos.push([mx + colW * (i + 0.5), cy]);
-    tagY = cy - above; closeY = cy + below - closeS * 1.1; labelSide = 'below';
-  } else {
-    const rowH = 230 * u, top = H / 2 - ((n - 1) * rowH) / 2 - 60 * u, x = 120 * u + ic / 2;
-    for (let i = 0; i < n; i++) pos.push([x, top + rowH * i]);
-    tagY = pos[0][1] - ic / 2 - 130 * u; closeY = pos[n - 1][1] + ic / 2 + 120 * u; labelSide = 'right';
-  }
-  const tagM = div('mask'); const tag = div('tag', tagM); tag.textContent = P.tag || ''; tag.style.fontSize = `${tagS}px`;
-  const closeM = div('mask'); const close = div('closing', closeM); close.textContent = P.closing || ''; close.style.fontSize = `${closeS}px`;
-  const centreX = (el, y) => { el.style.top = `${y}px`; el.style.left = '0px'; el.style.width = `${W}px`; el.style.textAlign = 'center'; };
-  if (!portrait) { centreX(tagM, tagY); centreX(closeM, closeY); }
-  else { for (const [m, y] of [[tagM, tagY], [closeM, closeY]]) { m.style.left = `${pos[0][0] - ic / 2}px`; m.style.top = `${y}px`; } }
+  const side = W * (portrait ? 0.1 : 0.05), inner = W - side * 2;
+  const ic = (portrait ? 132 : 188) * u, labS = 50 * u, gapI = (portrait ? 12 : 24) * u;
+  const paint = PP.ground({ light: [0.2, 0.14] });
+  const tagM = div('mask'); const tag = div('tag', tagM); tag.textContent = P.tag || ''; tag.style.fontSize = `${Math.round(48 * u)}px`;
+  const closeM = div('mask'); const close = div('closing', closeM); close.textContent = P.closing || '';
 
-  const S = steps.map((st, i) => {
-    const [x, y] = pos[i];
+  const S = steps.map((st) => {
     const s = svg('svg', { class: 'ico', viewBox: '0 0 64 64', width: ic, height: ic }, root);
-    s.style.left = `${x - ic / 2}px`; s.style.top = `${y - ic / 2}px`;
-    const sw = Math.max(1, (2.6 * u * 64) / ic);   // about 2.6 px at 1080p, whatever the icon's size
-    const parts = (ICONS[st.icon] || []).map(([tag2, at]) => { const e = svg(tag2, { ...at, pathLength: 1, 'stroke-width': at['data-w'] ? sw * 1.6 : sw }, s); e.style.strokeDasharray = '1 1'; return e; });
+    const sw = (5 * u * 64) / ic;   // 5 px at 1080p whatever the icon's size: anything thinner goes at YouTube's bitrate
+    const parts = (ICONS[st.icon] || []).map(([tag2, at]) => { const e = svg(tag2, { ...at, pathLength: 1, 'stroke-width': at['data-w'] ? sw * 1.4 : sw }, s); e.style.strokeDasharray = '1 1'; return e; });
     const lm = div('mask'); const lab = div('label', lm); lab.style.fontSize = `${labS}px`;
     // the number in mono, its unit and word in the body face: 18 g dose
     if (st.value) for (const part of st.value.split(/([\d.,–-]*\d)/)) { if (!part) continue; const v = div(/\d/.test(part) ? 'v' : 'w', lab); v.style.display = 'inline'; v.textContent = part; }
     if (st.word) { const w2 = div('w', lab); w2.style.display = 'inline'; w2.textContent = (st.value ? ' ' : '') + st.word; }
-    if (labelSide === 'below') { lm.style.left = `${x - 200 * u}px`; lm.style.width = `${400 * u}px`; lm.style.top = `${y + ic / 2 + 34 * u}px`; }
-    else { lm.style.left = `${x + ic / 2 + 44 * u}px`; lm.style.top = `${y - labS * 0.62}px`; lab.style.textAlign = 'left'; }
-    return { s, parts, lab, st };
+    const und = div('und');
+    return { s, parts, lab, lm, und, st };
   });
-  // arrows between steps, drawn on as the next step arrives
   const C = [];
   for (let i = 0; i < n - 1; i++) {
-    const [x1, y1] = pos[i], [x2, y2] = pos[i + 1];
     const s = svg('svg', { width: W, height: H }, root); s.style.left = '0px'; s.style.top = '0px';
-    const a = portrait ? [x1, y1 + ic / 2 + gapI] : [x1 + ic / 2 + gapI, y1], b = portrait ? [x2, y2 - ic / 2 - gapI] : [x2 - ic / 2 - gapI, y2];
-    const ah = 9 * u, sw = Math.max(1.5, 2 * u);
-    const line = svg('path', { class: 'conn', d: `M${a[0]} ${a[1]} L${b[0]} ${b[1]}`, 'stroke-width': sw, pathLength: 1 }, s);
-    const head = svg('path', { class: 'conn', d: portrait ? `M${b[0] - ah} ${b[1] - ah} L${b[0]} ${b[1]} L${b[0] + ah} ${b[1] - ah}` : `M${b[0] - ah} ${b[1] - ah} L${b[0]} ${b[1]} L${b[0] - ah} ${b[1] + ah}`, 'stroke-width': sw }, s);
-    line.style.strokeDasharray = '1 1';
-    C.push({ line, head });
+    C.push({ s, line: svg('path', { class: 'conn', 'stroke-width': Math.max(4, 5 * u), pathLength: 1 }, s), head: svg('path', { class: 'conn', 'stroke-width': Math.max(4, 5 * u) }, s) });
   }
 
-  const at = (i) => 0.55 + i * 0.95 * Math.min(1, k);   // a step a little under every second
-  const tClose = at(n - 1) + 1.0, out = D - 0.45;
+  // The beats, in frames: the tag, then each step (its icon draws part by part, its label rises), an arrow carrying on to the next, the closing
+  // line. Steps close up when there are many, so the closing line still gets its read. Then the steps that matter take the accent.
+  const step = Math.min(F(24), Math.max(0.4, (D - 3.6) / Math.max(1, n)));
+  const at = (i) => F(14) + i * step;
+  const tClose = at(n - 1) + F(26), OUT = D - F(11), nudge = ic * 0.15;
   PP.scene({
     duration: D,
-    frame(t) {
-      root.style.opacity = 1 - PP.p(t, out, D, PP.ease.inOut);
-      tag.style.transform = `translateY(${(1 - PP.p(t, 0.15, 0.6)) * 110}%)`;
-      const hl = PP.p(t, tClose + 0.25, tClose + 0.8, PP.ease.inOut);
+    setup() {
+      PP.fit(close, inner, 84 * u, 56 * u);
+      const tagH = tag.getBoundingClientRect().height, closeH = close.getBoundingClientRect().height, labH = labS * 1.15, ah = 13 * u;
+      const pos = [];
+      if (!portrait) {
+        const colW = inner / n, gaps = [66, 30, 90].map((g) => g * u);
+        const total = tagH + gaps[0] + ic + gaps[1] + labH + gaps[2] + closeH, y0 = (H - total) * 0.46;
+        for (let i = 0; i < n; i++) pos.push([side + colW * i, y0 + tagH + gaps[0]]);
+        tagM.style.top = `${y0}px`; closeM.style.top = `${y0 + total - closeH}px`;
+      } else {
+        const rowH = 192 * u, gaps = [54, 56].map((g) => g * u);
+        const total = tagH + gaps[0] + n * rowH - (rowH - ic) + gaps[1] + closeH, y0 = (H - total) * 0.46;
+        for (let i = 0; i < n; i++) pos.push([side, y0 + tagH + gaps[0] + i * rowH]);
+        tagM.style.top = `${y0}px`; closeM.style.top = `${y0 + total - closeH}px`;
+      }
+      tagM.style.left = closeM.style.left = `${side}px`;
       S.forEach((x, i) => {
-        const a = at(i), m = x.parts.length;
-        x.parts.forEach((e, j) => { const p = PP.p(t, a + j * 0.1, a + j * 0.1 + 0.55, PP.ease.inOut); e.style.strokeDashoffset = 1 - p; e.style.opacity = p > 0 ? 1 : 0; });
-        const lp = PP.p(t, a + 0.3, a + 0.75);
-        x.lab.style.transform = `translateY(${(1 - lp) * 110}%)`;
-        // at the close, the variables take the accent and the fixed steps step back
+        const [px, py] = pos[i];
+        x.s.style.left = `${px - nudge}px`; x.s.style.top = `${py}px`;   // the drawings sit inside their grid: this puts their ink, not their box, on the shared edge
+        const lx = portrait ? px + ic + 40 * u : px, ly = portrait ? py + (ic - labH) / 2 : py + ic + 30 * u;
+        x.lm.style.left = `${lx}px`; x.lm.style.top = `${ly}px`;
+        const b = x.lab.getBoundingClientRect();
+        Object.assign(x.und.style, { left: `${lx}px`, top: `${ly + labH + 10 * u}px`, width: `${Math.ceil(b.width)}px`, height: `${Math.round(7 * u)}px` });
+      });
+      // arrows between steps, drawn on as the next step arrives
+      C.forEach((c, i) => {
+        const [x1, y1] = pos[i], [x2, y2] = pos[i + 1];
+        const a = portrait ? [x1 + ic / 2 - nudge, y1 + ic + gapI] : [x1 + ic - nudge + gapI, y1 + ic / 2], b = portrait ? [x2 + ic / 2 - nudge, y2 - gapI] : [x2 - nudge - gapI, y2 + ic / 2];
+        c.line.setAttribute('d', `M${a[0]} ${a[1]} L${b[0]} ${b[1]}`);
+        c.head.setAttribute('d', portrait ? `M${b[0] - ah} ${b[1] - ah} L${b[0]} ${b[1]} L${b[0] + ah} ${b[1] - ah}` : `M${b[0] - ah} ${b[1] - ah} L${b[0]} ${b[1]} L${b[0] - ah} ${b[1] + ah}`);
+        c.line.style.strokeDasharray = '1 1';
+      });
+    },
+    frame(t) {
+      paint(t);
+      const gone = PP.ease.exit(PP.clamp((t - OUT) / F(7)));
+      root.style.opacity = 1 - gone; root.style.transform = `translateY(${-gone * 12 * u}px)`;
+      tag.style.transform = `translateY(${(1 - PP.p(t, -1, -0.5, E)) * 110}%)`;
+      const hl = PP.p(t, tClose + F(10), tClose + F(24), PP.ease.inOut);
+      S.forEach((x, i) => {
+        const a = at(i);
+        x.parts.forEach((e, j) => { const b = a + j * F(3), p = PP.p(t, b, b + F(16), PP.ease.inOut); e.style.strokeDashoffset = 1 - p; e.style.opacity = PP.p(t, b, b + F(3)); });
+        x.lab.style.transform = `translateY(${(1 - PP.p(t, a + F(8), a + F(20), E)) * 112}%)`;
+        // at the close, the variables take the accent and the fixed steps' drawings step back. Words stay in the ink: they still have to be read.
         const on = x.st.variable;
-        x.s.style.opacity = on ? 1 : 1 - 0.55 * hl;
-        x.lab.style.opacity = on ? 1 : 1 - 0.55 * hl;
-        x.lab.style.color = on && hl > 0 ? `color-mix(in srgb, var(--pp-accent) ${Math.round(hl * 100)}%, var(--pp-ink))` : '';
-        if (on) x.parts.forEach((e) => { e.style.stroke = hl > 0 ? `color-mix(in srgb, var(--pp-accent) ${Math.round(hl * 100)}%, var(--pp-ink))` : ''; });
+        x.s.style.opacity = on ? 1 : 1 - 0.45 * hl;
+        if (on) { x.parts.forEach((e) => { e.style.stroke = hl > 0 ? `color-mix(in srgb, var(--pp-accent) ${Math.round(hl * 100)}%, var(--pp-ink))` : ''; }); x.und.style.transform = `scaleX(${hl})`; x.und.style.opacity = hl > 0 ? 1 : 0; } else x.und.style.opacity = 0;
       });
       C.forEach((c, i) => {
-        const p = PP.p(t, at(i) + 0.5, at(i + 1) + 0.05, PP.ease.inOut);
-        c.line.style.strokeDashoffset = 1 - p; c.line.style.opacity = p > 0 ? 1 - 0.4 * hl : 0;
-        c.head.style.opacity = PP.p(t, at(i + 1) - 0.05, at(i + 1) + 0.2) * (1 - 0.4 * hl);
+        const p = PP.p(t, at(i) + F(14), at(i + 1), PP.ease.inOut);
+        c.line.style.strokeDashoffset = 1 - p; c.line.style.opacity = PP.p(t, at(i) + F(14), at(i) + F(17));
+        c.head.style.opacity = PP.p(t, at(i + 1) - F(2), at(i + 1) + F(4));
       });
-      close.style.transform = `translateY(${(1 - PP.p(t, tClose, tClose + 0.55)) * 110}%)`;
+      close.style.transform = `translateY(${(1 - PP.p(t, tClose, tClose + F(16), E)) * 110}%)`;
     },
+    // one soft pop per step, never the same twice, and a little light on the closing line
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      ...steps.map((_, i) => ({ sfx: 'pop', hit: at(i) + F(8), seed: 3 + i, note: 340 * (1 + 0.04 * i), gain_db: -24 - (i % 2) })),
+      { sfx: 'shimmer', hit: tClose + F(4), dur: 1.4, seed: 2, note: 880, gain_db: -26 },
+    ]),
   });
 })();
 </script>

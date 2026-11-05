@@ -1,0 +1,45 @@
+{
+  "name": "newsroom",
+  "for": "explainers, investigations, business, politics: cool newsprint and a highlighter",
+  "colours": {
+    "ink": "#0E1A26",
+    "paper": "#E1E7ED",
+    "accent": "#C4201A",
+    "accent2": "#FFE23E",
+    "muted": "#55626E"
+  },
+  "fonts": {
+    "display": "Newsreader",
+    "body": "Public Sans",
+    "mono": "IBM Plex Mono"
+  },
+  "typeset": {
+    "display_weight": 640,
+    "display_tracking": "-0.02em",
+    "display_case": "none",
+    "body_weight": 560,
+    "body_tracking": "0"
+  },
+  "pace": 1,
+  "motion": {
+    "character": "decisive, editorial: highlights draw left to right, papers slide on and stop",
+    "enter": "snap",
+    "give": 0,
+    "stagger_frames": 4,
+    "main_frames": 16
+  },
+  "sound": "dry and quiet: paper slides and soft ticks, a small hit at section breaks",
+  "grain": 0.05,
+  "vignette": 0,
+  "graphics": [
+    "highlighter behind the key words",
+    "real documents over drawn ones"
+  ],
+  "rules": [
+    "state the source on every number"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "block"
+  }
+}

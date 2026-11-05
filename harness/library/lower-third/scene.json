@@ -1,5 +1,5 @@
 {
-  "what": "Lower third: who is speaking, a small label above, a rule that draws in. Transparent, for over footage.",
+  "what": "Lower third with a name and a job, on solid plates that read on any footage. Two plates: the name on paper, the job on the accent, each opened by a sweep of colour. Leave it there unless someone asks for the quiet one-plate form (props.form: rail). Transparent, for over footage.",
   "width": 1920, "height": 1080, "fps": 30, "duration": 5, "alpha": true,
-  "props": { "tag": "Owner", "name": "Maya Okafor", "role": "Second Pour Coffee, Leeds", "duration": 5 }
+  "props": { "name": "Maya Okafor", "role": "Owner, Second Pour Coffee", "side": "left", "duration": 5 }
 }

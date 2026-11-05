@@ -1,0 +1,141 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
+  body { width: 100vw; height: 100vh; position: relative; }
+  .world { position: absolute; inset: 0; will-change: transform; }
+  canvas { position: absolute; left: -8%; top: -8%; width: 116%; height: 116%; }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .place { position: absolute; font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); white-space: nowrap; line-height: 1.2; }
+  .block { position: absolute; }
+  .mask { overflow: hidden; }
+  .kicker { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: 0.02em; color: var(--pp-ink); opacity: 0.82; white-space: nowrap; line-height: 1.25; }
+  .title { font-family: var(--pp-display); font-weight: var(--pp-dw, 400); letter-spacing: var(--pp-dt, -0.015em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); line-height: 1.04; white-space: nowrap; }
+  .line { display: block; overflow: hidden; padding: 0.02em 0 0.14em; margin-bottom: -0.1em; }
+  .w { display: inline-block; }
+  .black { position: absolute; inset: 0; background: #000; opacity: 0; }
+</style></head>
+<body>
+  <div class="world" id="far"><canvas id="c1"></canvas></div>
+  <div class="world" id="near"><canvas id="c2"></canvas><svg id="svg"></svg>
+    <div class="place" id="pa"></div><div class="place" id="pb"></div>
+  </div>
+  <div class="block" id="block">
+    <div class="mask"><div class="kicker" id="kicker"></div></div>
+    <div class="title" id="title"></div>
+  </div>
+  <div class="black" id="black"></div>
+<script src="../../pp-scene.js"></script>
+<script>
+(() => {
+  // Three beats: the world, the idea crossing it, the name. The ground is contour lines made from seeded noise, in two layers that
+  // move at different speeds, so there is real depth behind the type without a glowing blob or a stock gradient. Everything is built
+  // once in setup and only moved in frame(t): the picture is the same however its frames are drawn.
+  const P = PP.props, $ = (id) => document.getElementById(id), F = PP.f, E = PP.enter;
+  const W = PP.size.width, H = PP.size.height, upright = H > W, u = Math.min(W, H) / 1080, D = +P.duration || 10;
+  const NS = 'http://www.w3.org/2000/svg', lines = (Array.isArray(P.title_lines) && P.title_lines.length ? P.title_lines : [P.title || '']).slice(0, 2);
+  const paint = PP.ground({ light: [0.24, 0.16], lift: 0.09 });
+
+  // the timing, top to bottom, in one place: a change here moves the sound with the picture
+  const T = { route: F(14), routeLen: F(96), b: 0, title: 0, settle: 0, out: D - F(36) };
+  T.b = T.route + T.routeLen - F(6); T.title = T.route + T.routeLen + F(10); T.settle = T.title + F(30);
+
+  // contour lines by marching squares over a seeded height field
+  function contours(cv, seed, levels, alpha, scale) {
+    const w = (cv.width = Math.round(W * 1.16)), h = (cv.height = Math.round(H * 1.16)), g = cv.getContext('2d');
+    const step = Math.round(10 * Math.max(1, u)), nx = Math.ceil(w / step) + 1, ny = Math.ceil(h / step) + 1, v = new Float32Array(nx * ny);
+    const field = (x, y) => { const a = x / scale, b = y / scale; return PP.noise2(a, b, seed) * 0.62 + PP.noise2(a * 2.1 + 3, b * 2.1, seed + 1) * 0.28 + PP.noise2(a * 4.3, b * 4.3 + 7, seed + 2) * 0.1; };
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) v[j * nx + i] = field(i * step, j * step);
+    g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--pp-ink').trim(); g.globalAlpha = alpha; g.lineWidth = Math.max(1.5, 1.8 * u); g.lineCap = 'round';
+    const lerpEdge = (a, b, l) => (l - a) / (b - a);
+    for (const l of levels) {
+      g.beginPath();
+      for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+        const a = v[j * nx + i], b = v[j * nx + i + 1], c = v[(j + 1) * nx + i + 1], d = v[(j + 1) * nx + i];
+        const pts = [];
+        if ((a < l) !== (b < l)) pts.push([i + lerpEdge(a, b, l), j]);
+        if ((b < l) !== (c < l)) pts.push([i + 1, j + lerpEdge(b, c, l)]);
+        if ((d < l) !== (c < l)) pts.push([i + lerpEdge(d, c, l), j + 1]);
+        if ((a < l) !== (d < l)) pts.push([i, j + lerpEdge(a, d, l)]);
+        if (pts.length >= 2) { g.moveTo(pts[0][0] * step, pts[0][1] * step); g.lineTo(pts[1][0] * step, pts[1][1] * step); }
+      }
+      g.stroke();
+    }
+  }
+
+  let path, len = 0, dot, pl = [], setDist = null;
+  // when the eased line reaches a share of its length, as a share of its time: the sound lands where the picture does
+  const timeAt = (q) => { let a = 0, b = 1; for (let i = 0; i < 24; i++) { const m = (a + b) / 2; if (PP.ease.inOut(m) < q) a = m; else b = m; } return a; };
+  const stops = (Array.isArray(P.stops) ? P.stops : []).slice(0, upright ? 3 : 5), marks = [], distance = +P.distance || 0;
+  PP.scene({
+    duration: D,
+    setup() {
+      const side = W * (upright ? 0.1 : 0.05);
+      const ramp = (n, a, b) => Array.from({ length: n }, (_, i) => a + ((b - a) * i) / (n - 1));
+      contours($('c1'), 3, ramp(14, -0.56, 0.56), 0.1, 620 * u);
+      contours($('c2'), 11, ramp(9, -0.5, 0.5), 0.17, 760 * u);
+      // the route: a line that wanders across the bottom of the frame, well clear of the title, never through it
+      const svg = $('svg'), a = [side + 110 * u, H * 0.79], b = [W - side - 60 * u, H * 0.68], n = 7, pts = [];
+      for (let i = 0; i <= n; i++) { const q = i / n, wob = (i === 0 || i === n) ? 0 : (PP.hash(i * 3 + (+P.seed || 1)) - 0.5) * H * 0.07; pts.push([PP.lerp(a[0], b[0], q), PP.lerp(a[1], b[1], q) + wob]); }
+      let d = `M${pts[0][0]} ${pts[0][1]}`;
+      for (let i = 0; i < n; i++) { const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n, i + 2)]; d += ` C${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]} ${p2[1]}`; }
+      path = document.createElementNS(NS, 'path'); path.setAttribute('d', d); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'var(--pp-accent)'); path.setAttribute('stroke-width', Math.max(4, 5 * u)); path.setAttribute('stroke-linecap', 'round'); svg.appendChild(path);
+      len = path.getTotalLength(); path.style.strokeDasharray = `${len} ${len}`;
+      dot = document.createElementNS(NS, 'circle'); dot.setAttribute('r', 11 * u); dot.setAttribute('fill', 'var(--pp-accent)'); svg.appendChild(dot);
+      // the two ends get a name, each placed clear of the line
+      const size = Math.round(48 * u);
+      pl = [[$('pa'), P.from || '', a, 'left'], [$('pb'), P.to || '', b, 'right']];
+      for (const [el, text, at, align] of pl) { el.textContent = text; el.style.fontSize = `${size}px`; el.style.top = `${at[1] + (align === 'left' ? 44 * u : -86 * u)}px`; if (align === 'left') el.style.left = `${at[0]}px`; else el.style.right = `${W - at[0] - 20 * u}px`; }
+      // real stops: each name comes on as the line reaches it, the labels taking turns above and below so they stay clear of it. With the running
+      // distance this is one true thing carried through the piece, and it only works with real places and a real number.
+      stops.forEach((name, i) => {
+        const q = (i + 1) / (stops.length + 1), at = path.getPointAtLength(len * q), el = document.createElement('div'), m = document.createElementNS(NS, 'circle');
+        el.className = 'place'; el.textContent = name; el.style.fontSize = `${size}px`; el.style.left = `${at.x}px`; el.style.top = `${at.y + (i % 2 ? 30 * u : -92 * u)}px`; $('near').appendChild(el);
+        m.setAttribute('cx', at.x); m.setAttribute('cy', at.y); m.setAttribute('r', 9 * u); m.setAttribute('fill', 'var(--pp-paper)'); m.setAttribute('stroke', 'var(--pp-ink)'); m.setAttribute('stroke-width', 4 * u); svg.appendChild(m);
+        marks.push({ el, m, q });
+      });
+      if (distance) {
+        const d = document.createElement('div'); d.className = 'dist'; d.style.cssText = `position:absolute;right:${Math.round(side + 40 * u)}px;bottom:${Math.round(H * 0.075)}px;font-family:var(--pp-body);font-weight:700;color:var(--pp-ink);font-size:${Math.round(72 * u)}px;line-height:1.1;white-space:nowrap`;
+        d.textContent = `${PP.num(distance)} ${P.unit || 'km'}`; document.body.insertBefore(d, $('black')); setDist = PP.digits(d);
+      }
+      // the title block, left on the same margin as everything else
+      const block = $('block'); block.style.left = `${side + 40 * u}px`; block.style.top = `${H * (upright ? 0.3 : 0.17)}px`;
+      const title = $('title'), wordsOf = [];
+      lines.forEach((ln) => { const o = document.createElement('span'); o.className = 'line'; const ws = ln.split(/\s+/).filter(Boolean); ws.forEach((w, i) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w; o.appendChild(s); if (i < ws.length - 1) o.appendChild(document.createTextNode(' ')); wordsOf.push(s); }); title.appendChild(o); });
+      window.__words = wordsOf;
+      PP.fit(title, W - (side + 40 * u) * 2, H * (upright ? 0.1 : 0.235), 96 * u);
+      $('kicker').textContent = P.kicker || ''; $('kicker').style.fontSize = `${Math.round(50 * u)}px`; $('kicker').parentNode.style.marginBottom = `${Math.round(22 * u)}px`;
+    },
+    frame(t) {
+      paint(t);
+      // the camera: a slow push, already moving on the first frame and still moving on the last, never stopping dead. The near layer travels further.
+      const c = PP.p(t, -1, D + 1, PP.ease.linear);
+      const push = (depth) => `translate(${(10 - 34 * c) * depth * u}px, ${(10 - 26 * c) * depth * u}px) scale(${1 + 0.05 * c * depth})`;
+      $('far').style.transform = push(0.55); $('near').style.transform = push(1);
+      // the route draws at a walking pace with an ease at both ends: it is the first idea, and it gets the time
+      const r = PP.p(t, T.route, T.route + T.routeLen, PP.ease.inOut);
+      path.style.strokeDashoffset = `${len * (1 - r)}`;
+      const at = path.getPointAtLength(len * r), show = PP.p(t, T.route - F(6), T.route + F(4), E);
+      dot.setAttribute('cx', at.x); dot.setAttribute('cy', at.y); dot.setAttribute('r', 11 * u * show);
+      for (const k of marks) { const on = PP.clamp((r - k.q) / 0.03); k.el.style.opacity = on; k.el.style.transform = `translate(-50%, ${(1 - on) * 12 * u}px)`; k.m.setAttribute('opacity', on); }
+      if (setDist) setDist(`${PP.num(Math.round(distance * r))} ${P.unit || 'km'}`);
+      $('pa').style.opacity = 1; $('pa').style.transform = `translateY(${(1 - PP.p(t, -1, -0.5, E)) * 16 * u}px)`;
+      $('pb').style.opacity = PP.p(t, T.b, T.b + F(14), E); $('pb').style.transform = `translateY(${(1 - PP.p(t, T.b, T.b + F(18), E)) * 16 * u}px)`;
+      // the name: the kicker first, then word by word up through the line's mask, each slower than the last
+      $('kicker').style.transform = `translateY(${(1 - PP.p(t, -1, -0.5, E)) * 104}%)`;
+      window.__words.forEach((w, i) => { const a = T.title + F(5) * i; const p = PP.p(t, a, a + F(26), E); w.style.transform = `translateY(${(1 - p) * 112}%)`; });
+      $('black').style.opacity = PP.p(t, T.out, T.out + F(30), PP.ease.inOut);
+    },
+    // A warm chord under everything, a breath in, one soft hit as the title lands: a score in miniature, and silence after.
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'pad', at: 0, dur: D, seed: 6, note: +P.note || 98, gain_db: -9 },
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      { sfx: 'swell', hit: T.title + F(2), dur: 1.1, seed: 3, gain_db: -16 },
+      { sfx: 'impact', hit: T.title + F(2), seed: 8, size: 1.2, gain_db: -10 },
+      ...marks.map((k, i) => ({ sfx: 'tick', hit: T.route + T.routeLen * timeAt(k.q), seed: i + 2, note: 1800 + i * 90, gain_db: -30 })),
+      { sfx: 'shimmer', hit: T.title + F(10), dur: 2, seed: 2, note: +P.note * 4 || 392, gain_db: -32 },
+    ]),
+  });
+})();
+</script>
+</body></html>

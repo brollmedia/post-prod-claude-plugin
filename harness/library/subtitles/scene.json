@@ -1,14 +1,13 @@
 {
-  "what": "Captions from a word-timed transcript in one of three styles (sentence, word highlight, punchy chunks), in sync with the voice. Transparent, for over footage.",
+  "what": "Captions in one of three styles (sentence, word highlight, punchy chunks) on a solid plate, at 60 to 66 px, two lines at most, clear of the player. Set words to a word-timed transcript (a file, or a list of { w, start, end }) to sync them to the voice; with none, the text is spaced evenly over the duration so you can judge the look. Add your voice as an audio entry. Transparent, for over footage.",
   "width": 1920, "height": 1080, "fps": 30, "duration": 13.9, "alpha": true,
-  "audio": [{ "src": "../../examples/media/vo.wav", "at": 0 }],
   "props": {
-    "words": "../../examples/media/vo-words.json",
+    "words": "",
     "text": "A five pound latte is not five pounds of coffee. The beans cost about forty pence. The rest is rent, milk, wages, and the cup in your hand.",
     "style": "demo",
     "demo_styles": ["sentence", "highlight", "chunks"],
     "style_names": { "sentence": "Sentence captions", "highlight": "Word highlight", "chunks": "Punchy chunks" },
-    "show_style_label": true,
+    "show_style_label": false,
     "chunk_max_words": 3,
     "linger": 0.35,
     "duration": 13.9

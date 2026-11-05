@@ -1,8 +1,9 @@
 {
-  "what": "Logo reveal, subscribe and bell pressed by a cursor, then an end screen with two video boxes and the subscribe circle in YouTube's end-screen positions. Opaque, 10 s.",
-  "width": 1920, "height": 1080, "fps": 30, "duration": 10, "alpha": false,
+  "what": "Logo reveal with a tagline, subscribe and bell pressed by a cursor, then an end screen: two video boxes with their titles and the subscribe circle, clear of the player's controls. Set logo to the creator's mark (a file in this folder): without it the sample's coffee bean is drawn. Opaque, 13 s.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 13, "alpha": false,
   "props": {
     "name": "Grounds",
+    "logo": "",
     "tagline": "The money and craft of running a coffee shop",
     "subscribe": "Subscribe",
     "subscribed": "Subscribed",
@@ -10,6 +11,6 @@
       { "label": "Next", "title": "The £1 croissant", "src": "" },
       { "label": "Also watch", "title": "Why cafés close in year two", "src": "" }
     ],
-    "duration": 10
+    "duration": 13
   }
 }

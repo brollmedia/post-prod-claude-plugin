@@ -1,85 +1,102 @@
 <!doctype html>
 <html><head><meta charset="utf-8">
 <style>
+  /* Why a plate: a count over footage has to read on a bright sky and a dark room alike, and a soft oval behind it is a smudge. One left edge,
+     one plate, opened from an accent bar. The sparkline is the line under the number, in the one accent. */
   html, body { margin: 0; background: transparent; overflow: hidden; }
   body { width: 100vw; height: 100vh; position: relative; }
-  /* legibility on any footage: a soft field of the creator's dark behind the middle (no box, nothing on the letters) */
-  .scrim { position: absolute; inset: 0; background: radial-gradient(72% 80% at 50% 50%, color-mix(in srgb, var(--pp-paper) 86%, transparent) 35%, color-mix(in srgb, var(--pp-paper) 52%, transparent) 100%); }
-  .stack { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
-  .mask { overflow: hidden; padding-bottom: 0.12em; }
-  .tag { font-family: var(--pp-body); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-ink); opacity: 0.82; white-space: nowrap; line-height: 1.2; }
+  .lt { position: absolute; display: flex; align-items: stretch; }
+  .bar { flex: none; background: var(--pp-accent); transform-origin: center bottom; }
+  .plate { overflow: hidden; background: var(--pp-paper); }
+  .inner { box-sizing: border-box; width: max-content; display: flex; flex-direction: column; }
+  .mask { overflow: hidden; }
+  .sup { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); opacity: 0.84; line-height: 1.2; white-space: nowrap; }
   .row { display: flex; align-items: baseline; }
-  .count { font-family: var(--pp-mono); font-weight: 500; color: var(--pp-ink); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.03em; line-height: 1; text-align: right; white-space: nowrap; }
-  .unit { font-family: var(--pp-display); font-weight: 420; font-style: italic; color: var(--pp-ink); line-height: 1; white-space: nowrap; }
-  .sub { font-family: var(--pp-body); font-weight: 500; color: var(--pp-ink); opacity: 0.8; white-space: nowrap; line-height: 1.2; }
-  .num { font-family: var(--pp-mono); font-size: 0.94em; font-variant-numeric: tabular-nums; }
-  .month { font-family: var(--pp-mono); font-weight: 400; fill: var(--pp-ink); }
+  .count { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); letter-spacing: var(--pp-dt, -0.02em); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); font-variant-numeric: lining-nums; line-height: 1.02; text-align: right; white-space: nowrap; }
+  .unit { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); letter-spacing: var(--pp-dt, -0.015em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); line-height: 1; white-space: nowrap; }
   svg { overflow: visible; display: block; }
 </style></head>
 <body>
-  <div class="scrim" id="scrim"></div>
-  <div class="stack" id="stack">
-    <div class="mask"><div class="tag" id="tag"></div></div>
-    <div class="row" id="row"><div class="count" id="count"></div><div class="unit" id="unit"></div></div>
-    <div class="mask"><div class="sub" id="sub"></div></div>
-    <svg id="spark"></svg>
+  <div class="lt" id="lt">
+    <div class="bar" id="bar"></div>
+    <div class="plate" id="plate"><div class="inner" id="inner">
+      <div class="mask"><div class="sup" id="tag"></div></div>
+      <div class="mask" id="rowM"><div class="row" id="row"><div class="count" id="count"></div><div class="unit" id="unit"></div></div></div>
+      <svg id="spark"></svg>
+      <div class="mask"><div class="sup" id="sub"></div></div>
+    </div></div>
   </div>
 <script src="../../pp-scene.js"></script>
 <script>
 (() => {
-  const P = PP.props, k = PP.pace, D = +P.duration || 5, $ = (id) => document.getElementById(id);
-  const W = PP.size.width, H = PP.size.height, portrait = H > W;
-  const u = portrait ? W / 1080 : H / 1080;
-  const vals = (P.values || []).map(Number), months = P.months || [], n = vals.length;
+  const P = PP.props, F = PP.f, E = PP.enter, D = +P.duration || 8, $ = (id) => document.getElementById(id);
+  const W = PP.size.width, H = PP.size.height, upright = H > W, u = Math.min(W, H) / 1080;
+  const vals = (P.values || []).map(Number), n = vals.length;
   const target = vals.reduce((s, v) => s + v, 0);
   const cum = vals.reduce((a, v) => (a.push(a[a.length - 1] + v), a), [0]);   // cum[m]: total after m months
   const NS = 'http://www.w3.org/2000/svg', mk = (tag, at, parent) => { const e = document.createElementNS(NS, tag); for (const k2 in at) e.setAttribute(k2, at[k2]); parent.appendChild(e); return e; };
-  const monoNumbers = (node, text) => { for (const part of String(text).split(/(\d[\d.,]*\d|\d)/)) { if (!part) continue; const s = document.createElement('span'); s.textContent = part; if (/\d/.test(part)) s.className = 'num'; node.appendChild(s); } };
+  const sp = $('spark');
+  const line = mk('polyline', { fill: 'none', stroke: 'var(--pp-accent)', 'stroke-width': Math.max(4, 7 * u), 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, sp);
+  const head = mk('circle', { r: 11 * u, fill: 'var(--pp-accent)' }, sp);
+  $('tag').textContent = P.tag || ''; $('sub').textContent = P.sub || ''; $('unit').textContent = P.unit || '';
+  if (!P.tag) $('tag').parentNode.style.display = 'none';
+  if (!P.sub) $('sub').parentNode.style.display = 'none';
 
-  // sizes from the frame
-  const countS = (portrait ? 190 : 210) * u, unitS = 62 * u, tagS = 22 * u, subS = 32 * u;
-  $('tag').textContent = P.tag || ''; $('tag').style.fontSize = `${tagS}px`;
-  $('count').style.fontSize = `${countS}px`; $('unit').textContent = P.unit || ''; $('unit').style.fontSize = `${unitS}px`; $('unit').style.marginLeft = `${0.32 * unitS}px`;
-  monoNumbers($('sub'), P.sub || ''); $('sub').style.fontSize = `${subS}px`;
-  $('tag').parentNode.style.marginBottom = `${26 * u}px`; $('sub').parentNode.style.marginTop = `${28 * u}px`;
+  // The beats, in frames: bar, plate, the tag, then the number (the hero: the longest move), which climbs, lands and holds. The count is the
+  // running total of the months, and the line's head moves with it. Out is quicker than in, and whole.
+  const T = { bar: F(4), plate: F(7), tag: F(12), row: F(15), sub: F(20) };
+  const LEN = { bar: F(9), plate: F(16), text: F(14), row: F(18) };
+  const A = F(24), B = Math.min(A + 2.6 * Math.min(1.1, PP.pace), D - 2.5), OUT = D - F(14), OUTLEN = F(9);
+  const CLIMB = PP.bezier(0.35, 0, 0.12, 1);
 
-  // the sparkline: one point per month, drawn up to where the count has got to
-  const sw = (portrait ? 760 : 640) * u, sh = 84 * u, labS = 15 * u, sp = $('spark');
-  sp.setAttribute('width', sw); sp.setAttribute('height', sh + labS * 2.2); sp.style.marginTop = `${46 * u}px`;
-  const lo = Math.min(...vals) * 0.97, hi = Math.max(...vals) * 1.01;
-  const X = (i) => (n > 1 ? (i / (n - 1)) * sw : sw / 2), Y = (v) => sh - ((v - lo) / (hi - lo)) * sh;
-  const base = mk('line', { x1: 0, x2: sw, y1: sh, y2: sh, stroke: 'var(--pp-ink)', 'stroke-width': Math.max(1, u), opacity: 0.3 }, sp);
-  const line = mk('polyline', { fill: 'none', stroke: 'var(--pp-accent)', 'stroke-width': Math.max(2, 3 * u), 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, sp);
-  const head = mk('circle', { r: 5 * u, fill: 'var(--pp-accent)' }, sp);
-  const labs = months.map((m, i) => { const t = mk('text', { x: X(i), y: sh + labS * 1.9, 'text-anchor': 'middle', 'font-size': labS, class: 'month' }, sp); t.textContent = m; return t; });
-
+  let plateW = 0, sw = 0, sh = 0, X = () => 0, Y = () => 0, setCount = () => {};
   PP.scene({
     duration: D,
     setup() {
+      const maxW = W * (upright ? 0.8 : 0.5) - 90 * u;
+      $('inner').style.padding = `${Math.round(28 * u)}px ${Math.round(44 * u)}px ${Math.round(30 * u)}px ${Math.round(36 * u)}px`;
+      for (const id of ['tag', 'sub']) PP.fit($(id), maxW, 48 * u, 48 * u);
+      $('unit').style.fontSize = `${Math.round(72 * u)}px`; $('unit').style.marginLeft = `${Math.round(20 * u)}px`;
+      const unitW = P.unit ? $('unit').getBoundingClientRect().width + 20 * u : 0;
       // the number's box is as wide as its final value, right-aligned, so the group never shifts while it counts
-      const c = $('count'); c.textContent = PP.num(target); c.style.width = `${Math.ceil(c.getBoundingClientRect().width)}px`;
-      const st = $('stack'); st.style.top = `${(H - st.getBoundingClientRect().height) / 2}px`;
+      const c = $('count'); c.textContent = PP.num(target);
+      PP.fit(c, maxW - unitW, 176 * u, 110 * u);
+      setCount = PP.digits(c); setCount(PP.num(target));
+      c.style.width = `${Math.ceil(c.getBoundingClientRect().width)}px`;
+      $('rowM').style.margin = `${Math.round(14 * u)}px 0 ${Math.round(14 * u)}px`;
+      sw = Math.round(Math.max($('row').getBoundingClientRect().width, $('tag').getBoundingClientRect().width)); sh = Math.round(72 * u);
+      sp.setAttribute('width', sw); sp.setAttribute('height', sh); sp.style.marginBottom = `${Math.round(22 * u)}px`;
+      const lo = Math.min(...vals), hi = Math.max(...vals), r = 12 * u;
+      X = (i) => (n > 1 ? r + (i / (n - 1)) * (sw - r * 2) : sw / 2); Y = (v) => r + (1 - (v - lo) / Math.max(1, hi - lo)) * (sh - r * 2);
+      plateW = Math.ceil($('inner').getBoundingClientRect().width);
+      $('bar').style.width = `${Math.round(10 * u)}px`;
+      const lt = $('lt'), m = Math.round(W * (upright ? 0.1 : 0.05));
+      lt.style.bottom = `${Math.round(H * (upright ? 0.26 : 0.18))}px`;
+      if (P.side === 'right') lt.style.right = `${m}px`; else lt.style.left = `${m}px`;
     },
     frame(t) {
-      const a = 0.4, b = Math.min(a + 2.8 * k, D - 1.45), out = D - 0.5 * k;   // the count lands with time to read it before the exit
-      const show = PP.io(t, 0, out, 0.5, 0.5, PP.ease.inOut);
-      $('scrim').style.opacity = PP.io(t, 0, out + 0.1, 0.5, 0.45, PP.ease.inOut);
-      $('tag').style.transform = `translateY(${(1 - PP.io(t, 0.1, out, 0.5 * k, 0.4 * k)) * 110}%)`;
-      $('sub').style.transform = `translateY(${(1 - PP.io(t, 0.3, out + 0.05, 0.5 * k, 0.4 * k)) * 110}%)`;
-      $('row').style.opacity = show; $('row').style.transform = `translateY(${(1 - PP.io(t, 0.05, out, 0.55 * k, 0.5 * k)) * 18 * u}px)`;
-      sp.style.opacity = PP.io(t, 0.25, out + 0.1, 0.5, 0.45);
+      const out = PP.ease.exit(PP.clamp((t - OUT) / OUTLEN));
+      $('plate').style.width = `${Math.round(plateW * PP.p(t, T.plate, T.plate + LEN.plate, E) * (1 - out) * 10) / 10}px`;
+      const barOut = PP.ease.exit(PP.clamp((t - OUT - F(5)) / F(7)));
+      $('bar').style.transform = `scaleY(${PP.p(t, T.bar, T.bar + LEN.bar, E) * (1 - barOut)})`;
+      $('tag').style.transform = `translateY(${(1 - PP.p(t, T.tag, T.tag + LEN.text, E)) * 104}%)`;
+      $('row').style.transform = `translateY(${(1 - PP.p(t, T.row, T.row + LEN.row, E)) * 104}%)`;
+      $('sub').style.transform = `translateY(${(1 - PP.p(t, T.sub, T.sub + LEN.text, E)) * 104}%)`;
       // the count runs through the months' running total (q months counted); the line's head moves with it
-      const q = PP.p(t, a, b, PP.ease.inOut) * n, qi = Math.min(n - 1, Math.floor(q));
-      $('count').textContent = PP.num(Math.round(q >= n ? target : cum[qi] + vals[qi] * (q - qi)));
+      const q = PP.p(t, A, B, CLIMB) * n, qi = Math.min(n - 1, Math.floor(q));
+      setCount(PP.num(Math.round(q >= n ? target : cum[qi] + vals[qi] * (q - qi))));
       const m = (q * (n - 1)) / n, whole = Math.min(n - 1, Math.floor(m)), f = m - whole;
       const pts = []; for (let i = 0; i <= whole && i < n; i++) pts.push(`${X(i)},${Y(vals[i])}`);
       let hx = X(whole), hy = Y(vals[whole]);
-      if (whole < n - 1 && f > 0) { hx = X(whole) + (X(whole + 1) - X(whole)) * f; hy = Y(vals[whole]) + (Y(vals[whole + 1]) - Y(vals[whole])) * f; pts.push(`${hx},${hy}`); }
-      line.setAttribute('points', pts.join(' '));
-      head.setAttribute('cx', hx); head.setAttribute('cy', hy);
-      head.setAttribute('opacity', PP.p(t, a - 0.2, a + 0.1));
-      labs.forEach((l, i) => l.setAttribute('opacity', 0.7 * PP.p(t, a + (i / Math.max(1, n - 1)) * (b - a) - 0.2, a + (i / Math.max(1, n - 1)) * (b - a) + 0.2)));
+      if (whole < n - 1 && f > 0) { hx += (X(whole + 1) - X(whole)) * f; hy += (Y(vals[whole + 1]) - Y(vals[whole])) * f; pts.push(`${hx},${hy}`); }
+      line.setAttribute('points', pts.join(' ')); line.style.opacity = PP.p(t, A - F(4), A);
+      head.setAttribute('cx', hx); head.setAttribute('cy', hy); head.style.opacity = PP.p(t, A - F(6), A);
     },
+    // the climb gets a quiet rollup that slows with it; one tick as it lands, and that is all an overlay needs
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'rollup', hit: B, dur: Math.min(B - A, 6), seed: 3, gain_db: -26 },
+      { sfx: 'tick', hit: B + F(1), seed: 4, note: 2300, gain_db: -24 },
+    ]),
   });
 })();
 </script>

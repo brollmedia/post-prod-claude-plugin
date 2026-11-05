@@ -1,6 +1,6 @@
 {
-  "what": "Espresso shot timer: a dial counting the shot with the target window marked, and the grams-out readout climbing to the yield. Transparent, for over footage of the pour.",
-  "width": 1920, "height": 1080, "fps": 30, "duration": 9, "alpha": true,
+  "what": "Timer on a solid plate: a dial counting with the target window marked, the time in big numbers, the target, and a second number climbing to its total (grams out in the sample). side: left or right. Transparent, for over footage of the pour.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 10, "alpha": true,
   "props": {
     "label": "Shot time",
     "shot_seconds": 28,
@@ -9,11 +9,13 @@
     "dial_max": 35,
     "dose_g": 18,
     "yield_g": 36,
+    "out_label": "out",
     "ratio_label": "1:2 ratio",
+    "show_ratio": false,
     "first_drops_s": 6,
-    "count_from": 0.7,
+    "count_from": 1,
     "count_seconds": 7,
     "side": "left",
-    "duration": 9
+    "duration": 10
   }
 }

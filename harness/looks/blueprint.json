@@ -1,0 +1,45 @@
+{
+  "name": "blueprint",
+  "for": "engineering, how things work, architecture, science, infrastructure: drawn like a plan",
+  "colours": {
+    "ink": "#EAF6F4",
+    "paper": "#0E3B43",
+    "accent": "#FF9142",
+    "accent2": "#7FE0D0",
+    "muted": "#8FB9B8"
+  },
+  "fonts": {
+    "display": "JetBrains Mono",
+    "body": "JetBrains Mono",
+    "mono": "JetBrains Mono"
+  },
+  "typeset": {
+    "display_weight": 600,
+    "display_tracking": "-0.02em",
+    "display_case": "none",
+    "body_weight": 500,
+    "body_tracking": "0"
+  },
+  "pace": 1.05,
+  "motion": {
+    "character": "precise: lines draw on, dimensions tick in, nothing bounces",
+    "enter": "snap",
+    "give": 0,
+    "stagger_frames": 3,
+    "main_frames": 14
+  },
+  "sound": "clean clicks as lines land, a low hum under the whole thing",
+  "grain": 0.02,
+  "vignette": 0.1,
+  "graphics": [
+    "lines, dimensions, callouts",
+    "the accent marks the one part that matters"
+  ],
+  "rules": [
+    "label what is drawn"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "block"
+  }
+}

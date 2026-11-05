@@ -1,0 +1,45 @@
+{
+  "name": "gallery",
+  "for": "art, design, fashion, food, beauty, craft: neutral white wall, one bright thing",
+  "colours": {
+    "ink": "#111214",
+    "paper": "#F3F3F4",
+    "accent": "#E8144E",
+    "accent2": "#2E5BFF",
+    "muted": "#66686C"
+  },
+  "fonts": {
+    "display": "Fraunces",
+    "body": "Hanken Grotesk",
+    "mono": "Geist Mono"
+  },
+  "typeset": {
+    "display_weight": 420,
+    "display_tracking": "-0.03em",
+    "display_case": "none",
+    "body_weight": 560,
+    "body_tracking": "0"
+  },
+  "pace": 1.1,
+  "motion": {
+    "character": "unhurried and exact: slides that stop dead, long holds, no bounce",
+    "enter": "glide",
+    "give": 0,
+    "stagger_frames": 5,
+    "main_frames": 20
+  },
+  "sound": "almost none: one soft tick, one breath of room",
+  "grain": 0.02,
+  "vignette": 0,
+  "graphics": [
+    "one image or one word, very large",
+    "the empty wall is part of the piece, but it surrounds the work"
+  ],
+  "rules": [
+    "never two bright things"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "wall"
+  }
+}

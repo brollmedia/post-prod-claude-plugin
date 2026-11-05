@@ -4,22 +4,22 @@
   html, body { margin: 0; overflow: hidden; background: var(--pp-paper); }
   body { width: 100vw; height: 100vh; position: relative; }
   /* one tight block, centred in the frame; the masthead is as wide as the title's longest line */
-  .card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-  .mast { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--pp-body); font-weight: 600;
-          font-size: var(--small); letter-spacing: 0.18em; text-transform: uppercase; color: var(--pp-ink); }
-  .mast .ep { color: var(--pp-muted); }
-  .mast .ep b { font-family: var(--pp-mono); font-weight: 500; letter-spacing: 0.04em; color: var(--pp-ink); }
+  .card { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); }
+  .mast { display: flex; justify-content: space-between; align-items: baseline; column-gap: 1em; font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0);
+          font-size: var(--small); line-height: 1.2; white-space: nowrap; color: var(--pp-ink); }
+  .mast .ep { opacity: 0.92; }
+  .mast .ep b { font-family: var(--pp-mono); font-weight: 500; }
   .mask { overflow: hidden; }
   .mast .mask > span { display: inline-block; }
-  .rule { height: 2px; background: var(--pp-ink); opacity: 0.55; margin-top: calc(var(--small) * 0.9); transform-origin: left center; }
-  .title { margin-top: calc(var(--big) * 0.3); font-family: var(--pp-display); color: var(--pp-ink); font-size: var(--big);
-           line-height: 1.04; letter-spacing: -0.022em; font-weight: 420; font-variation-settings: "opsz" 144, "SOFT" 30; }
-  /* each line is a mask; its padding leaves room for descenders and the payoff's underline */
-  .line { display: block; overflow: hidden; white-space: nowrap; padding-bottom: 0.2em; margin-bottom: -0.2em; }
+  .rule { height: var(--rule); background: var(--pp-ink); opacity: 0.6; margin-top: calc(var(--small) * 0.4); transform-origin: left center; }
+  .title { margin-top: calc(var(--big) * 0.2); font-family: var(--pp-display); color: var(--pp-ink); font-size: var(--big);
+           line-height: 1.02; letter-spacing: var(--pp-dt, -0.022em); font-weight: var(--pp-dw, 420); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); }
+  /* each line is a mask; its padding leaves room for descenders and the payoff's underline, and the lines stay a clear gap apart */
+  .line { display: block; overflow: hidden; white-space: nowrap; padding-bottom: 0.15em; margin-bottom: calc(-0.15em + var(--gap)); }
   .line > .in { display: inline-block; }
   .w { display: inline-block; will-change: transform; }
   .pay { position: relative; }
-  .pay .ul { position: absolute; left: 0.02em; right: 0.02em; bottom: -0.1em; height: 2px; background: var(--pp-accent); transform-origin: left center; transform: scaleX(0); }
+  .pay .ul { position: absolute; left: 0.02em; right: 0.02em; bottom: -0.08em; height: var(--ulh); background: var(--pp-accent); transform-origin: left center; transform: scaleX(0); }
 </style></head>
 <body>
   <div class="card" id="card">
@@ -32,9 +32,10 @@
   </div>
 <script src="../../pp-scene.js"></script>
 <script>
-  const P = PP.props, $ = (id) => document.getElementById(id);
-  const D = +P.duration || 5, k = PP.pace;
+  const P = PP.props, $ = (id) => document.getElementById(id), F = PP.f, E = PP.enter;
+  const D = +P.duration || 5, W = PP.size.width, H = PP.size.height, u = Math.min(W, H) / 1080;
   const lines = Array.isArray(P.title_lines) && P.title_lines.length ? P.title_lines.slice(0, 2) : [String(P.title || '')];
+  const paint = PP.ground({ light: [0.3, 0.2] });
   $('series').textContent = P.series || '';
   // the episode number set in mono (every number in mono)
   $('ep').innerHTML = String(P.kicker || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])).replace(/(\d+)/g, '<b>$1</b>');
@@ -46,43 +47,48 @@
     ws.forEach((w, wi) => {
       const s = document.createElement('span'); s.className = 'w'; s.textContent = w;
       const last = li === lines.length - 1 && wi === ws.length - 1;
-      if (last && P.payoff && w.replace(/[.,!?]$/, '') === P.payoff) { s.classList.add('pay'); const u = document.createElement('i'); u.className = 'ul'; s.appendChild(u); pay = s; }
+      if (last && P.payoff && w.replace(/[.,!?]$/, '') === P.payoff) { s.classList.add('pay'); const ul = document.createElement('i'); ul.className = 'ul'; s.appendChild(ul); pay = s; }
       row.appendChild(s); if (wi < ws.length - 1) row.appendChild(document.createTextNode(' '));
       words.push(s);
     });
   });
+  // The beats, in frames: the rule draws, the masthead rises, then the title word by word, each slower to settle than the masthead. The payoff
+  // takes the accent and its underline draws: colour and a line, never a change of weight, because a look's face may have only one.
+  // the masthead is already there on frame 0, which is the thumbnail on social; the title is the move
+  const T = { rule: -1, series: -1, ep: -1, words: F(8), step: F(4), wordLen: F(20) };
+  const LAND = T.words + (words.length - 1) * T.step + F(10), PAY = T.words + (words.length - 1) * T.step + T.wordLen;
   PP.scene({
     duration: D,
     setup() {
-      // the longest line (payoff at its final weight) is 70% of the frame width (84% when upright), capped at 19% of the height
-      const W = PP.size.width, H = PP.size.height, card = $('card');
-      card.style.setProperty('--big', '100px'); if (pay) pay.style.fontWeight = 640;
+      // the longest line is 70% of the frame width (80% when upright), capped at 19% of the height
+      const up = H > W, card = $('card'), s = card.style;
+      s.setProperty('--small', `${Math.round(48 * u)}px`); s.setProperty('--rule', `${Math.max(4, Math.round(5 * u))}px`);
+      s.setProperty('--gap', `${Math.ceil(9 * u)}px`); s.setProperty('--ulh', `${Math.max(5, Math.round(8 * u))}px`);
+      s.setProperty('--big', '100px');
       const w0 = Math.max(...[...document.querySelectorAll('.line > .in')].map((l) => l.getBoundingClientRect().width));
-      if (pay) pay.style.fontWeight = '';
-      const px = Math.min(100 * (W * (H > W ? 0.84 : 0.7)) / w0, H * 0.19);
-      card.style.setProperty('--big', px + 'px');
-      card.style.width = Math.ceil(w0 * px / 100) + 'px';
-      card.style.setProperty('--small', Math.max(14, Math.min(H * 0.021, W * 0.03)) + 'px');
+      const px = Math.min(100 * (W * (up ? 0.8 : 0.7)) / w0, H * 0.19);
+      s.setProperty('--big', `${px}px`);
+      // never narrower than the masthead needs
+      const mast = $('series').getBoundingClientRect().width + $('ep').getBoundingClientRect().width + 48 * u;
+      card.style.width = `${Math.ceil(Math.max(w0 * px / 100, mast))}px`;
     },
     frame(t) {
-      // masthead: the rule draws, then series and episode rise through their masks
-      $('rule').style.transform = `scaleX(${PP.p(t, 0.1, 0.1 + 0.7 * k, PP.ease.outExpo)})`;
-      const rise = (el, a, d = 0.5) => { const p = PP.p(t, a, a + d * k, PP.ease.outQuart); el.style.transform = `translateY(${(1 - p) * 110}%)`; };
-      rise($('series'), 0.3); rise($('ep'), 0.42);
-      // title words rise through the line mask one after another, each settling in 0.55 s
-      words.forEach((w, i) => {
-        const a = 0.65 + i * 0.11 * k, p = PP.p(t, a, a + 0.55 * k, PP.ease.outQuart);
-        w.style.transform = `translateY(${(1 - p) * 112}%)`;
-      });
-      // the payoff gains weight and takes the accent, then its underline draws in
+      paint(t);
+      $('rule').style.transform = `scaleX(${PP.p(t, T.rule, T.rule + F(18), E)})`;
+      const rise = (el, a, d) => { el.style.transform = `translateY(${(1 - PP.p(t, a, a + d, E)) * 124}%)`; };
+      rise($('series'), T.series, F(14)); rise($('ep'), T.ep, F(14));
+      words.forEach((w, i) => rise(w, T.words + i * T.step, T.wordLen));
       if (pay) {
-        const a = 0.65 + (words.length - 1) * 0.11 * k + 0.55 * k;
-        const g = PP.p(t, a, a + 0.5 * k, PP.ease.inOut);
-        pay.style.fontWeight = Math.round(420 + 220 * g);
-        pay.style.color = `color-mix(in srgb, var(--pp-accent) ${Math.round(g * 100)}%, var(--pp-ink))`;
-        pay.querySelector('.ul').style.transform = `scaleX(${PP.p(t, a + 0.3 * k, a + 0.9 * k, PP.ease.outExpo)})`;
+        pay.style.color = `color-mix(in srgb, var(--pp-accent) ${Math.round(PP.p(t, PAY, PAY + F(10), PP.ease.inOut) * 100)}%, var(--pp-ink))`;
+        pay.querySelector('.ul').style.transform = `scaleX(${PP.p(t, PAY + F(4), PAY + F(18), E)})`;
       }
     },
+    // a card lands once: a breath in, one soft hit under the title, then quiet
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      { sfx: 'swell', hit: LAND, dur: 0.8, seed: 3, gain_db: -19 },
+      { sfx: 'impact', hit: LAND, seed: 6, size: 0.8, gain_db: -13 },
+    ]),
   });
 </script>
 </body></html>

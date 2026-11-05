@@ -5,12 +5,12 @@
   body { width: 100vw; height: 100vh; position: relative; font-family: var(--pp-body); color: var(--pp-ink); }
   canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; display: block; }
   /* the caption sits under the number, centred, inside title-safe */
-  .cap { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 1.2vmin; text-align: center; }
-  .m { overflow: hidden; padding: 0 1vmin 0.5vmin; }
-  #caption { font-family: var(--pp-display); font-weight: 500; font-size: 4.4vmin; line-height: 1.1; letter-spacing: -0.01em; white-space: nowrap; }
-  #caption b { font-family: var(--pp-mono); font-weight: 500; font-size: 0.86em; color: var(--pp-accent); margin-right: 0.35em; letter-spacing: -0.02em; }
-  #note { font-family: var(--pp-mono); font-weight: 400; font-size: 1.9vmin; letter-spacing: 0.02em; color: var(--pp-muted); white-space: nowrap; }
-  .rule { width: 6vmin; height: max(2px, 0.18vmin); background: var(--pp-accent); transform-origin: center; }
+  .cap { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 1.4vmin; text-align: center; }
+  .m { overflow: hidden; padding: 0 1vmin 0.5vmin; max-width: 90vw; box-sizing: border-box; }
+  #caption { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); line-height: 1.12; letter-spacing: var(--pp-dt, -0.01em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); white-space: nowrap; }
+  #caption b { font-weight: inherit; margin-right: 0.3em; }
+  #note { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); line-height: 1.2; opacity: 0.84; white-space: nowrap; }
+  .rule { width: 12vmin; height: max(4px, 0.6vmin); background: var(--pp-accent); transform-origin: center; }
 </style></head>
 <body>
   <canvas id="gl"></canvas>
@@ -23,12 +23,14 @@
 <script type="module">
   import * as THREE from '../../vendor/three.module.min.js';
 
-  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace, E = PP.ease;
-  const D = +P.duration || 7;
+  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace, E = PP.ease, F = PP.f;
+  const D = +P.duration || 9.5;
   const W = PP.size.width, H = PP.size.height, aspect = W / H, portrait = H > W;
   const C = PP.style.colours || {};
   const NUM = String(P.number ?? '140');
-  $('capNum').textContent = '≈' + NUM; $('capText').textContent = P.caption || '';
+  $('capNum').textContent = (P.prefix ?? '') + NUM;   // prefix: a mark before the number, such as ≈
+  const u = Math.min(W, H) / 1080;
+  if (!P.note) $('note').parentNode.style.display = 'none'; $('capText').textContent = P.caption || '';
   $('note').textContent = P.note || '';
 
   // seeded random: the same scene every render
@@ -36,6 +38,9 @@
 
   // ── the bean: an ellipsoid, flatter on its face, with an S-shaped groove pressed down the middle ──
   function beanGeometry() {
+    // shape: bean (the sample), sphere or box, for a number made of something else
+    if (P.shape === 'sphere') return new THREE.SphereGeometry(0.34, 16, 12).toNonIndexed();
+    if (P.shape === 'box') return new THREE.BoxGeometry(0.5, 0.5, 0.5).toNonIndexed();
     const g = new THREE.SphereGeometry(1, 18, 12);
     const p = g.attributes.position, v = new THREE.Vector3();
     for (let i = 0; i < p.count; i++) {
@@ -81,6 +86,8 @@
     return { pts, wPx: x1 - x0, hPx: y1 - y0 };
   }
 
+  // the last bean lands at about LAND; the caption comes as it settles
+  const LAND = 1.45 + 2.1 * k, CAP = Math.min(3.9, LAND - 0.1);
   let renderer, scene, camera, mesh, beans = [], baseZ = 0;
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), qs = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1), axis = new THREE.Vector3();
 
@@ -136,16 +143,19 @@
 
       // frame the number: it fills ~62% of the width in 16:9, ~84% in 9:16; caption under it
       const fovV = THREE.MathUtils.degToRad(camera.fov);
-      const want = portrait ? 0.84 : 0.6;
+      // never taller than 46% of the frame, whatever the face: a tall one (Anton) would push the caption off the bottom
+      const ratio = tg.hPx / tg.wPx, want = Math.min(portrait ? 0.84 : 0.6, 0.46 / (ratio * aspect));
       const visW = worldW / want, visH = visW / aspect;
       baseZ = (visH / 2) / Math.tan(fovV / 2);
       scene.fog.near = baseZ + 1; scene.fog.far = baseZ + 16;     // fog from just behind the number, whatever the framing
       // caption position: just under the number's bottom edge on screen
-      const numH = tg.hPx * s, yShift = portrait ? 0.6 : 0.55;     // lift the number a little to make room
+      PP.fit($('caption'), W * 0.86, 76 * u, 48 * u); PP.fit($('note'), W * 0.86, 48 * u, 48 * u);
+      // the number sits with its top 11% down the frame (a quarter upright), the caption under it, the whole a touch above the middle
+      const numH = tg.hPx * s, topAt = portrait ? 0.25 : 0.11, yShift = visH / 2 - topAt * visH - numH / 2;
       beans.yShift = yShift;
       const bottomNdc = ((-numH / 2 + yShift) / (visH / 2));
       const topPx = (1 - bottomNdc) / 2 * H;
-      $('cap').style.top = (topPx + Math.min(W, H) * 0.07) + 'px';
+      $('cap').style.top = (topPx + H * 0.045) + 'px';
     },
     frame(t) {
       if (!mesh) return;
@@ -179,12 +189,19 @@
       renderer.render(scene, camera);
 
       // caption: after the number has formed
-      const c0 = 3.9;
-      $('rule').style.transform = `scaleX(${PP.p(t, c0, c0 + 0.5 * k, E.outExpo)})`;
-      const a = PP.p(t, c0 + 0.1, c0 + 0.1 + 0.5 * k), b = PP.p(t, c0 + 0.25, c0 + 0.25 + 0.5 * k);
+      const c0 = CAP;
+      $('rule').style.transform = `scaleX(${PP.p(t, c0, c0 + F(14), PP.enter)})`;
+      const a = PP.p(t, c0 + F(3), c0 + F(17), PP.enter), b = PP.p(t, c0 + F(7), c0 + F(21), PP.enter);
       $('caption').style.transform = `translateY(${(1 - a) * 115}%)`;
       $('note').style.transform = `translateY(${(1 - b) * 115}%)`;
     },
+    // the beans pour in on a rising breath, the number lands once, and the caption gets one tick
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      { sfx: 'riser', hit: LAND - 0.5, dur: 2.2, seed: 3, note: 110, gain_db: -21 },
+      { sfx: 'impact', hit: LAND - 0.5, seed: 6, size: 1, gain_db: -13 },
+      { sfx: 'tick', hit: CAP + F(8), seed: 4, note: 2200, gain_db: -24 },
+    ]),
   });
 </script>
 </body></html>

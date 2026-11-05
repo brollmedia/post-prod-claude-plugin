@@ -6,13 +6,11 @@
   #stage { position: absolute; inset: 0; transform-origin: 0 0; }
   .win { position: absolute; border-radius: 1.1vh; overflow: hidden; background: var(--pp-paper);
          outline: max(1px, 0.1vh) solid color-mix(in srgb, var(--pp-ink) 16%, transparent); }
-  .bar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 0.8vh; box-sizing: border-box;
+  .bar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 1.2vmin; box-sizing: border-box;
          background: color-mix(in srgb, var(--pp-paper) 88%, var(--pp-ink)); }
-  .dot { width: 1.1vh; height: 1.1vh; border-radius: 50%; background: color-mix(in srgb, var(--pp-ink) 26%, transparent); flex: none; }
-  .addr { position: absolute; left: 50%; transform: translateX(-50%); height: 62%; display: flex; align-items: center; justify-content: center;
-          border-radius: 99px; background: color-mix(in srgb, var(--pp-paper) 70%, transparent); color: var(--pp-muted);
-          font-family: var(--pp-body); font-weight: 500; font-size: 1.5vh; letter-spacing: 0.01em; white-space: nowrap; }
-  .addr b { color: var(--pp-ink); font-weight: 500; opacity: 0.9; }
+  .dot { width: 1.8vmin; height: 1.8vmin; border-radius: 50%; background: color-mix(in srgb, var(--pp-ink) 26%, transparent); flex: none; }
+  .addr { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center;
+          color: var(--pp-ink); font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); line-height: 1.2; white-space: nowrap; }
   .view { position: absolute; left: 0; right: 0; bottom: 0; overflow: hidden; background: #fff; }
   #page { position: absolute; left: 0; top: 0; }
   #page img { display: block; }
@@ -38,13 +36,12 @@
   const SW = +P.screenWidth || 1440;
   // the window: wide on 16:9, taller on portrait; the bar is a fixed share of the height
   const winW = portrait ? W * 0.9 : Math.min(W * 0.8, H * 1.42), winH = portrait ? H * 0.7 : H * 0.84;
-  const winX = (W - winW) / 2, winY = (H - winH) / 2, barH = Math.round(H * 0.046 * (portrait ? 0.7 : 1));
+  const u = Math.min(W, H) / 1080, F = PP.f, winX = (W - winW) / 2, winY = (H - winH) / 2, barH = Math.round(84 * u);   // tall enough for the address at 48 px, the phone floor
+  const paint = PP.ground({ light: [0.3, 0.2] });
   Object.assign($('win').style, { left: winX + 'px', top: winY + 'px', width: winW + 'px', height: winH + 'px' });
   Object.assign($('bar').style, { height: barH + 'px', paddingLeft: barH * 0.45 + 'px' });
   $('view').style.top = barH + 'px';
-  $('addr').style.width = Math.min(winW * 0.42, H * 0.5) + 'px';
-  const host = (P.url || '').split('/')[0], rest = (P.url || '').slice(host.length);
-  $('addr').innerHTML = ''; const hb = document.createElement('b'); hb.textContent = host; $('addr').append(hb, rest);
+  $('addr').textContent = P.url || ''; $('addr').style.fontSize = `${Math.round(48 * u)}px`;
   $('shot').src = P.screen;
   const viewH = winH - barH;
   const M = P.mark;
@@ -59,7 +56,7 @@
   const scrollAt = (t) => notches.reduce((s, n) => s + n.by * PP.p(t, n.t, n.t + 0.34, PP.ease.outQuart), 0);
   const total = scrollAt(1e9);
   const pv = (x, y, s) => ({ x: x * sc + px0, y: (y - s) * sc });   // a page point in view px at scroll s
-  const cw = H * 0.024;
+  const cw = H * 0.036;
   $('cursor').style.width = cw + 'px';
 
   // the cursor rests while the wheel turns, then makes a curved, decelerating move to the start of the passage and drag-selects it
@@ -81,8 +78,17 @@
 
   PP.scene({
     duration: D,
-    async setup() { await $('shot').decode().catch((e) => console.error('screen image', e)); },
+    async setup() { await $('shot').decode().catch((e) => console.error('screen image', e)); 
+      // truly centred, clear of the dots on both sides. If the address needs more room than that the dots give way, because the words matter more;
+      // a very long one ends in an ellipsis rather than shrinking under 48 px
+      const a = $('addr'), w = a.getBoundingClientRect().width, clear = 130 * u, wide = winW - 48 * u;
+      if (w > winW - clear * 2) for (const d of document.querySelectorAll('.dot')) d.style.display = 'none';
+      if (w > wide) Object.assign(a.style, { display: 'block', width: `${wide}px`, overflow: 'hidden', textOverflow: 'ellipsis' });
+    },
     frame(t) {
+      paint(t);
+      // the address leaves before the zoom carries it out of the frame, and comes back after
+      $('addr').style.opacity = 1 - PP.p(t, zIn0 - F(6), zIn0, PP.ease.exit) + PP.p(t, zOut1 - F(4), zOut1 + F(6));
       const s = scrollAt(t);
       $('page').style.transform = `translate(${px0}px, ${-s * sc}px)`;
       const c = cursorAt(t);
@@ -96,13 +102,20 @@
       const rp = pv(M.x, yLine, total);
       Object.assign($('ring').style, { width: rd * 2 + 'px', height: rd * 2 + 'px', transform: `translate(${rp.x - rd}px, ${rp.y - rd}px)`, opacity: t >= tClick ? 0.9 * (1 - r) : 0 });
       // the zoom: a camera move centred on the passage, in, held, back out
-      const z = PP.p(t, zIn0, zIn1, PP.ease.inOut) * (1 - PP.p(t, zOut0, zOut1, PP.ease.inOut));
+      const z = PP.p(t, zIn0, zIn1, PP.ease.camera) * (1 - PP.p(t, zOut0, zOut1, PP.ease.camera));
       const Z = 1 + ((+P.zoom || 2) - 1) * z;
       const fx = winX + px0 + (M.x + M.w / 2) * sc, fy = winY + barH + (yLine - total) * sc;
       // keep the focus point on a straight path: interpolate where it sits on screen, not the translate
       const sx = PP.lerp(fx, W / 2, z), sy = PP.lerp(fy, H / 2, z);
       $('stage').style.transform = `translate(${sx - fx * Z}px, ${sy - fy * Z}px) scale(${Z})`;
     },
+    // the click is a real click, the zoom a soft move each way; the room stays quiet under a voice
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      { sfx: 'tick', hit: tClick, seed: 3, note: 1900, gain_db: -22 },
+      { sfx: 'whoosh', hit: zIn0 + (zIn1 - zIn0) * 0.5, dur: 0.7, seed: 4, gain_db: -24 },
+      { sfx: 'whoosh', hit: zOut0 + (zOut1 - zOut0) * 0.5, dur: 0.6, seed: 6, gain_db: -26 },
+    ]),
   });
 </script>
 </body></html>

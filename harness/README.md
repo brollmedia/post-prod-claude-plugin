@@ -5,10 +5,16 @@ One way to make any animation, graphic or edit in the creator's own style, rende
 ## Commands
 ```
 node bin/animate.mjs list                                  the starter library
-node bin/animate.mjs new <library-scene> <folder>          copy one to edit (it brings the kit, its fonts and a reference/ folder)
-node bin/animate.mjs still <scene> --t 2.5 --out f.png     one frame: look at it before rendering it all
-node bin/animate.mjs render <scene> [--aspect 9:16 | --size 1080x1920] [--fps 60] [--format mp4|prores|webm|png]
+node bin/animate.mjs looks                                 the starting looks (type, colour, motion, sound), for when nobody has set one, and what was used lately
+node bin/animate.mjs new <library-scene> <folder> --sheet look.json   copy one to edit, in a look written as numbers (or --look <name> --named when someone named one; it brings the kit and only the fonts it needs)
+node bin/animate.mjs still <scene> --t 2.5 --out f.png     one frame
+node bin/animate.mjs check <scene> [--aspect 9:16]         measure every frame, and write a contact sheet and the frames with the words covered
+node bin/animate.mjs render <scene> [--final] [--aspect 9:16 | --size 1080x1920] [--fps 60] [--format mp4|prores|webm|png]
      [--duration 6] [--workers 4] [--style look.json] [--ref reference/] [--props props.json] [--out f.mp4]
+node bin/animate.mjs sfx <kind> [--out f.wav] [--dur .5] [--seed 3] [--note 220]   one original sound effect, made here
+node bin/animate.mjs sound <file> [--hits 1.2,3.4] [--target -14] [--overlay]      measure a mix
+node bin/animate.mjs level <piece> --into <video> --out f.mp4 [--from 10 --to 40] [--gap]   bring a piece down to the voice in a video
+node bin/animate.mjs strip <video> [--out folder]           the frames either side of every cut
 node bin/animate.mjs compose spec.json                      clips, transitions, overlays, picture in picture, sound
 ```
 Every command prints JSON: `{ ok: true, … }` or `{ ok: false, code, message }`.
@@ -48,7 +54,12 @@ These are injected before the scene's own code runs:
 Kit helpers:
 - `PP.p(t, a, b, ease)`: progress 0 to 1 through `[a, b]`.
 - `PP.io(t, a, b, in, out)`: in, hold, then out.
-- `PP.ease.out` / `outExpo` / `inOut`: no overshoot.
+- `PP.ease`: `enter`, `snap`, `glide`, `move`, `camera`, `exit` by role (`craft/motion.md`), and `out`, `outExpo`, `inOut`. `PP.bezier(x1, y1, x2, y2)`. `PP.enter` and `PP.give` are the look's.
+- `PP.spring(t, a, dur, give)`: a closed-form spring. `give` 0 is no overshoot, 0.15-0.3 is about 1-5%.
+- `PP.f(n)`: seconds from frames at 30 fps, scaled by the look's pace.
+- `PP.stagger(i, n, step, cap)`, `PP.digits(el)` (a counter that never shifts), `PP.fit(el, maxW, maxPx, minPx)`.
+- `PP.ground()`: a full-frame ground with one light and a vignette. `PP.hash`, `PP.noise`, `PP.noise2`: seeded.
+- `sound` in `PP.scene`: `[{ sfx: 'whoosh', hit: 1.2, gain_db: -20, dur: .4, seed: 3 }]`, timed from the same numbers as the picture. `hit` puts the sound's loudest moment on that time. Kinds: whoosh, riser, impact, tick, pop, sub, swell, shimmer, rollup, pad, room.
 - `PP.num()`: formats a number.
 - `PP.split(el, letters)`: splits text into words (or letters).
 
@@ -63,6 +74,8 @@ Kit helpers:
 - **Fonts:** a font file that fails to load stops the render (`FONT_FAILED`). So does a face the page names but never loads (`FONT_MISSING`). A system font gets a warning, because it may be missing on another computer.
 - **Audio:** the manifest's sounds are mixed in sync.
 - **Speed:** frames are drawn by several browsers at once.
+- **Final:** `--final` is the finished look: motion blur (180° shutter, 8 sub-frames, centred), drawn at 2×, the look's film grain, and a full-frame piece's sound brought to -14 LUFS. Drafts are sharp and quick. `--shutter`, `--samples` and `--ss` set them apart.
+- **Colour:** frames are converted to Rec. 709 and tagged, so a colour in a scene is the colour in the file.
 - **Where it runs:** on the creator's own Chrome or Edge on Windows or Mac, and on our server with Chromium.
 
 ## Style in, slop out
@@ -85,7 +98,7 @@ Kit helpers:
   - two lines at most;
   - one accent per graphic.
 
-  Look at stills at several times (`still --t`) before rendering.
+  `check` measures all of this on every frame; look at its contact sheet before rendering.
 
 ## Compose onto footage
 `compose spec.json` takes:
@@ -110,9 +123,10 @@ Kit helpers:
 
 ## The starter library
 `animate.mjs list` shows them. Each is a styled, editable scene with its content in `scene.json` props:
-- **Titles and type:** `kinetic-title`, `lower-third`, `subtitles` (sentence, word highlight or chunks), `meme-caption`
+- A `compose` spec can take `"master": -14` to bring the whole piece to that level, as `render --final` does.
+- **Titles and type:** `title-sequence` (contour world, a route, the title, with sound), `kinetic-title`, `title-over` (a title on plates, over footage), `quote-card` (the quote fills the frame, in two forms), `lower-third` (two forms), `subtitles` (sentence, word highlight or chunks), `meme-caption`
 - **On footage:** `callout` (ring, arrow, label, highlight box, keyed to follow), `before-after` (a grade wipe and a split screen), `screen-frame` (a screen recording with zoom, cursor and highlight)
-- **Data:** `data-chart` (a waterfall), `counter` (a count with a sparkline), `countdown` (a timer dial with a target window)
+- **Data:** `stat-reveal` (a count with a to-scale bar and a payoff, with sound), `data-chart` (a waterfall), `counter` (a count with a sparkline), `countdown` (a timer dial with a target window)
 - **Maps and explainers:** `map-route` (Natural Earth, Mercator, a route that draws), `diagram` (steps with line icons)
 - **Brand:** `logo-endscreen` (logo reveal, subscribe and bell, YouTube end screen)
 - **3D:** `particles-3d` (three.js, instanced, seeded so every frame is the same however it renders)

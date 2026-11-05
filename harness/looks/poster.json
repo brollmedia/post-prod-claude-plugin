@@ -1,0 +1,45 @@
+{
+  "name": "poster",
+  "for": "quotes, opinions, essays, manifestos, big statements: one saturated colour and huge type",
+  "colours": {
+    "ink": "#F5F7FF",
+    "paper": "#1B2FD6",
+    "accent": "#FFE14D",
+    "accent2": "#FF7A7A",
+    "muted": "#B9C3FF"
+  },
+  "fonts": {
+    "display": "Archivo",
+    "body": "Archivo",
+    "mono": "IBM Plex Mono"
+  },
+  "typeset": {
+    "display_weight": 800,
+    "display_tracking": "-0.03em",
+    "display_case": "none",
+    "body_weight": 600,
+    "body_tracking": "0"
+  },
+  "pace": 0.95,
+  "motion": {
+    "character": "blunt: words slam on in order, a hard hold, one colour swap as the payoff",
+    "enter": "snap",
+    "give": 0,
+    "stagger_frames": 3,
+    "main_frames": 12
+  },
+  "sound": "dry low thumps on the words that matter, silence between them",
+  "grain": 0.02,
+  "vignette": 0,
+  "graphics": [
+    "the words are the picture",
+    "one colour field, edge to edge"
+  ],
+  "rules": [
+    "type fills the frame or it is too small"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "wall"
+  }
+}

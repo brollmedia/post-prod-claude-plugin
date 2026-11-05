@@ -1,0 +1,29 @@
+{
+  "description": "One short note at the start of a session and after a compaction, so a long watch loop still knows where the craft files are; and a HyperFrames render in one of our projects goes through the wrapper, so a final has passed check.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/hf-render-guard.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/craft-note.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

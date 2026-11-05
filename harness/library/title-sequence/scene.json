@@ -1,0 +1,5 @@
+{
+  "what": "Title sequence, full frame: contour lines in two layers with a slow camera, a route drawing across the frame from one place to another through named stops with a running distance, then the title rising word by word. Stops and distance must be real: leave them out rather than invent them. Sound built in. For a series or a documentary.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 10, "alpha": false,
+  "props": { "title_lines": ["The Cold Coast"], "kicker": "A film about the far north", "from": "Bergen", "to": "Tromsø", "stops": ["Ålesund", "Trondheim", "Bodø"], "distance": 1740, "unit": "km", "note": 98, "duration": 10 }
+}

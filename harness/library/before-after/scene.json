@@ -1,8 +1,8 @@
 {
-  "what": "Before and after in two parts: a wipe divider sweeps across real footage to reveal a warm colour grade, then a split screen sets two shots side by side with a place and time on each. Opaque; the footage plays inside the scene.",
-  "width": 1920, "height": 1080, "fps": 30, "duration": 8, "alpha": false,
+  "what": "Before and after in two parts: a wipe divider stops at the middle of the frame while the labels are read, then carries on to reveal the grade, then a split screen sets two shots side by side with a place and time on each. Set src on grade and on each split to your footage; until then two flat tints stand in. Opaque; the footage plays inside the scene.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 9.5, "alpha": false,
   "props": {
-    "duration": 8,
+    "duration": 9.5,
     "grade": {
       "src": "",
       "before": { "label": "Before", "note": "As shot" },
@@ -14,6 +14,6 @@
       { "src": "", "place": "Leeds,", "time": "8 am", "position": "38% 50%" },
       { "src": "", "place": "Leeds,", "time": "3 pm", "position": "60% 50%" }
     ],
-    "splitAt": 4.1
+    "splitAt": 5.4
   }
 }

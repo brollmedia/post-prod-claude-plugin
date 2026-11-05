@@ -5,26 +5,23 @@
   body { width: 100vw; height: 100vh; position: relative; }
   .abs { position: absolute; }
   .mask { position: absolute; overflow: hidden; padding-bottom: 0.15em; }
-  .title { font-family: var(--pp-display); font-weight: 520; color: var(--pp-ink); letter-spacing: -0.015em; line-height: 1.05; white-space: nowrap; }
-  .punch { font-family: var(--pp-body); font-weight: 500; color: var(--pp-accent); line-height: 1.2; white-space: nowrap; }
-  .label { font-family: var(--pp-body); font-weight: 500; color: var(--pp-ink); white-space: nowrap; line-height: 1; }
-  .value { font-family: var(--pp-mono); font-weight: 500; color: var(--pp-ink); white-space: nowrap; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
-  .tick { font-family: var(--pp-mono); font-weight: 400; color: var(--pp-muted); white-space: nowrap; line-height: 1; font-variant-numeric: tabular-nums; }
-  .source { font-family: var(--pp-body); font-weight: 400; color: var(--pp-muted); white-space: nowrap; line-height: 1.2; }
+  .title { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); letter-spacing: var(--pp-dt, -0.015em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); line-height: 1.05; white-space: nowrap; }
+  .punch { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); line-height: 1.2; white-space: nowrap; }
+  .label { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); white-space: nowrap; line-height: 1.2; }
+  .value { font-family: var(--pp-mono); font-weight: 500; color: var(--pp-ink); white-space: nowrap; line-height: 1.2; text-align: right; font-variant-numeric: tabular-nums; }
+  .source { font-family: var(--pp-body); font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); color: var(--pp-ink); opacity: 0.8; line-height: 1.2; text-wrap: balance; }
   .bar { background: var(--pp-ink); transform-origin: left center; }
   .bar.hl { background: var(--pp-accent); }
-  .grid { background: var(--pp-muted); }
-  .conn { background: var(--pp-muted); transform-origin: center top; }
-  .num { font-family: var(--pp-mono); font-size: 0.92em; }
-  .hl-text { color: var(--pp-accent); }
+  .conn { background: var(--pp-ink); transform-origin: center top; }
+  .num { font-family: var(--pp-mono); }
 </style></head>
 <body>
 <div id="root"></div>
 <script src="../../pp-scene.js"></script>
 <script>
-  const P = PP.props, k = PP.pace, D = +P.duration || 7;
+  const P = PP.props, F = PP.f, E = PP.enter, D = +P.duration || 12.5;
   const W = PP.size.width, H = PP.size.height, portrait = H > W;
-  const u = portrait ? W / 1080 : H / 1080;               // 1 unit = 1 px at 1080p; a phone frame is laid out from its width
+  const u = Math.min(W, H) / 1080;                         // 1 unit = 1 px at 1080p; a phone frame is laid out from its width
   const rows = P.rows || [], total = +P.total || rows.reduce((s, r) => s + +r.value, 0), cur = P.currency || '';
   const root = document.getElementById('root');
   const el = (cls, parent = root) => { const d = document.createElement('div'); d.className = cls; parent.appendChild(d); return d; };
@@ -32,75 +29,81 @@
   // every number in mono (the style's rule), even inside a sentence
   const monoNumbers = (node, text) => { for (const part of String(text).split(/([£$€]?\d[\d.,]*\d|[£$€]?\d)/)) { if (!part) continue; const s = document.createElement('span'); s.textContent = part; if (/\d/.test(part)) s.className = 'num'; node.appendChild(s); } };
   const place = (d, x, y, w, h) => { d.style.left = px(x); d.style.top = px(y); if (w != null) d.style.width = px(w); if (h != null) d.style.height = px(h); };
+  const paint = PP.ground({ light: [0.15, 0.1] });
 
-  // ── layout, all from the frame size ──
-  const mx = (portrait ? 80 : 150) * u;
-  const labelW = (portrait ? 230 : 270) * u, valueW = 130 * u, gap = 30 * u;
-  const x0 = mx + labelW + gap, x1 = W - mx - valueW - gap, scale = (x1 - x0) / total;
-  const rowH = (portrait ? 80 : 62) * u, barH = 26 * u;
-  const titleS = (portrait ? 76 : 68) * u, punchS = 30 * u, labelS = 26 * u, tickS = 18 * u, srcS = 18 * u;
-  const blockH = titleS * 1.1 + 22 * u + punchS * 1.3 + 90 * u + rows.length * rowH + 50 * u + srcS * 1.2;
-  const y0 = portrait ? (H - blockH) / 2 : 96 * u;
-  const titleY = y0, punchY = y0 + titleS * 1.1 + 22 * u;
-  const rowsY = punchY + punchS * 1.3 + 90 * u;
-  const srcY = rowsY + rows.length * rowH + 50 * u;
-
-  // title and punchline, each rising out of a mask
-  const tMask = el('mask'); place(tMask, mx, titleY); const title = el('title', tMask); title.textContent = P.title || ''; title.style.fontSize = px(titleS);
-  const pMask = el('mask'); place(pMask, mx, punchY); const punch = el('punch', pMask); monoNumbers(punch, P.punchline || ''); punch.style.fontSize = px(punchS);
-
-  // the axis: £0 … £5 with faint guides down through the bars
-  const axisY = rowsY - 18 * u, guides = [], ticks = [];
-  const step = total <= 10 ? 1 : Math.pow(10, Math.floor(Math.log10(total)));
-  for (let v = 0; v <= total + 1e-9; v += step) {
-    const x = x0 + v * scale;
-    const g = el('abs grid'); place(g, x - 0.5 * Math.max(1, u), axisY, Math.max(1, u), rows.length * rowH + 18 * u); guides.push(g);
-    const t = el('abs tick'); t.textContent = cur + (Math.abs(v - total) < 1e-9 && total % 1 ? total.toFixed(2) : v.toFixed(v % 1 ? 2 : 0)); t.style.fontSize = px(tickS);
-    t.style.top = px(axisY - tickS - 12 * u); t.style.left = px(x); t.style.transform = 'translateX(-50%)'; ticks.push(t);
-  }
-
-  // the rows: label, a bar floating at the running total, the value; a hairline joins each bar to the next
-  let cum = 0;
-  const R = rows.map((r, i) => {
-    const y = rowsY + i * rowH, cy = y + rowH / 2, v = +r.value;
-    const lab = el('abs label'); lab.textContent = r.label; lab.style.fontSize = px(labelS); place(lab, mx, cy - labelS * 0.5);
-    const val = el('abs value'); val.textContent = cur + v.toFixed(2); val.style.fontSize = px(labelS); place(val, W - mx - valueW, cy - labelS * 0.5, valueW);
-    const bx = x0 + cum * scale, bw = Math.max(r.highlight ? 4 * u : 1, v * scale);
-    const bar = el('abs bar' + (r.highlight ? ' hl' : '')); place(bar, bx, cy - barH / 2, bw, barH);
-    let conn = null;
-    if (i > 0) { conn = el('abs conn'); place(conn, bx - 0.5 * Math.max(1, u), cy - rowH + barH / 2, Math.max(1, u), rowH - barH); }
-    if (r.highlight) { lab.classList.add('hl-text'); val.classList.add('hl-text'); }
-    cum += v;
-    return { lab, val, bar, conn, hl: !!r.highlight };
+  const tMask = el('mask'), title = el('title', tMask); title.textContent = P.title || '';
+  const pMask = el('mask'), punch = el('punch', pMask); monoNumbers(punch, P.punchline || '');
+  const R = rows.map((r) => {
+    const lab = el('abs label'); lab.textContent = r.label;
+    const val = el('abs value'); val.textContent = cur + (+r.value).toFixed(2);
+    const bar = el('abs bar' + (r.highlight ? ' hl' : ''));
+    return { lab, val, bar, conn: null, hl: !!r.highlight, v: +r.value };
   });
-  const src = el('abs source'); src.textContent = P.source || ''; src.style.fontSize = px(srcS); place(src, mx, srcY);
+  const src = el('abs source'); src.textContent = P.source || '';
 
-  // ── timing: title, axis, each row in order, then the punchline ──
-  const T = { title: 0.15, axis: 0.45, row0: 0.75, stagger: 0.36 * k, emph: 0.75 + rows.length * 0.36 * k + 0.35, out: D - 0.45 };
+  // ── timing: the title, each row in order, then the punchline, then time to read it. Rows close up when there are many, so a long list stays quick ──
+  const step = Math.min(F(12), 3.4 / Math.max(1, rows.length)), first = F(18);
+  const T = { title: -1, row0: first, step, emph: first + rows.length * step + F(14), out: D - F(12) };
+  const LANDED = T.row0 + (rows.length - 1) * step + F(10);
   PP.scene({
     duration: D,
-    frame(t) {
-      const gone = 1 - PP.p(t, T.out, D, PP.ease.inOut);       // everything settles out together at the end
-      root.style.opacity = gone;
-      title.style.transform = `translateY(${(1 - PP.p(t, T.title, T.title + 0.5 * k)) * 105}%)`;
-      const ax = PP.p(t, T.axis, T.axis + 0.5 * k);
-      guides.forEach((g, i) => { g.style.opacity = 0.22 * PP.p(t, T.axis + i * 0.04, T.axis + i * 0.04 + 0.45 * k); });
-      ticks.forEach((x, i) => { x.style.opacity = PP.p(t, T.axis + i * 0.04, T.axis + i * 0.04 + 0.45 * k); });
-      src.style.opacity = 0.9 * ax;
-      const e = PP.p(t, T.emph, T.emph + 0.5 * k, PP.ease.inOut);
+    setup() {
+      // ── layout, all from the frame size and the words as they really measure ──
+      const side = W * (portrait ? 0.1 : 0.05), inner = W - side * 2;
+      PP.fit(title, inner, 92 * u, 56 * u); PP.fit(punch, inner, 60 * u, 48 * u);
+      src.style.fontSize = px(48 * u); src.style.width = px(inner);   // a long source takes two lines rather than running off the frame
+      const textS = 48 * u, lineH = textS * 1.2;
+      for (const r of R) { r.lab.style.fontSize = px(textS); r.val.style.fontSize = px(textS); }
+      const labelW = Math.ceil(Math.max(...R.map((r) => r.lab.getBoundingClientRect().width), 0));
+      const valueW = Math.ceil(Math.max(...R.map((r) => r.val.getBoundingClientRect().width), 0));
+      const gap = 32 * u, titleH = title.getBoundingClientRect().height, punchH = punch.getBoundingClientRect().height, srcH = P.source ? src.getBoundingClientRect().height : 0;
+      const top = H * (portrait ? 0.08 : 0.075), head = titleH + 8 * u + punchH + (portrait ? 56 : 34) * u, foot = srcH ? srcH + 26 * u : 0;
+      const room = H * (portrait ? 0.84 : 0.88) - head - foot;
+      // upright, each row is its words with its bar under them, across the whole width; wide, words and bar share a line
+      const rowH = Math.min((portrait ? 170 : 104) * u, room / Math.max(1, rows.length));
+      const barH = portrait ? Math.max(16 * u, rowH - lineH - 26 * u) : Math.max(24 * u, Math.min(rowH * 0.54, 44 * u));
+      const x0 = portrait ? side : side + labelW + gap, x1 = portrait ? W - side : W - side - valueW - gap, scale = (x1 - x0) / total;
+      const blockH = head + rows.length * rowH + foot, y0 = portrait ? (H - blockH) * 0.46 : top;
+      place(tMask, side, y0); place(pMask, side, y0 + titleH + 8 * u);
+      const rowsY = y0 + head;
+      let cum = 0;
       R.forEach((r, i) => {
-        const a = T.row0 + i * T.stagger;
-        const b = PP.p(t, a, a + 0.5 * k, PP.ease.outQuart);
-        r.bar.style.transform = `scaleX(${b})`;
-        const txt = PP.p(t, a + 0.05, a + 0.45 * k);
-        const dim = r.hl ? 1 : 1 - 0.5 * e;
-        r.lab.style.opacity = txt * dim; r.val.style.opacity = txt * dim;
-        r.lab.style.transform = r.val.style.transform = `translateY(${(1 - txt) * 0.35 * labelS}px)`;
-        r.bar.style.opacity = r.hl ? 1 : 0.9 - 0.55 * e;
-        if (r.conn) { const c = PP.p(t, a - 0.12, a + 0.12); r.conn.style.transform = `scaleY(${c})`; r.conn.style.opacity = 0.7 * c * (1 - 0.4 * e); }
+        const y = rowsY + i * rowH, textY = portrait ? y : y + (rowH - lineH) / 2, barY = portrait ? y + lineH + 10 * u : y + (rowH - barH) / 2;
+        place(r.lab, side, textY); place(r.val, W - side - valueW, textY, valueW);
+        const bx = x0 + cum * scale, bw = Math.max(r.hl ? 8 * u : 4 * u, r.v * scale);
+        place(r.bar, Math.min(bx, x1 - bw), barY, bw, barH);
+        // a joiner carries each bar on to the next. Upright it would cross the words, so there the running start of each bar does the job
+        if (i > 0 && !portrait) { r.conn = el('abs conn'); place(r.conn, bx - 2 * u, barY - (rowH - barH), 4 * u, rowH - barH); }
+        cum += r.v;
       });
-      punch.style.transform = `translateY(${(1 - PP.p(t, T.emph + 0.15, T.emph + 0.65 * k)) * 105}%)`;
+      place(src, side, rowsY + rows.length * rowH + 26 * u);
     },
+    frame(t) {
+      paint(t);
+      const gone = PP.ease.exit(PP.clamp((t - T.out) / F(7)));   // everything settles out together at the end
+      root.style.opacity = 1 - gone; root.style.transform = `translateY(${-gone * 12 * u}px)`;
+      title.style.transform = `translateY(${(1 - PP.p(t, T.title, T.title + F(18), E)) * 105}%)`;
+      const e = PP.p(t, T.emph, T.emph + F(14), PP.ease.inOut);
+      R.forEach((r, i) => {
+        const a = T.row0 + i * T.step;
+        // data lands dead on: no overshoot on a bar
+        r.bar.style.transform = `scaleX(${PP.p(t, a, a + F(14), PP.ease.snap)})`;
+        r.bar.style.opacity = PP.p(t, a, a + F(3)) * (r.hl ? 1 : 0.9 - 0.34 * e);
+        const txt = PP.p(t, a + F(1), a + F(12), E);
+        r.lab.style.opacity = r.val.style.opacity = txt;
+        r.lab.style.transform = r.val.style.transform = `translateY(${(1 - txt) * 8 * u}px)`;
+        if (r.conn) { const c = PP.p(t, a - F(3), a + F(3), E); r.conn.style.transform = `scaleY(${c})`; r.conn.style.opacity = 0.42 * c * (1 - 0.4 * e); }
+      });
+      punch.style.transform = `translateY(${(1 - PP.p(t, T.emph, T.emph + F(14), E)) * 105}%)`;
+      src.style.opacity = 0.8 * PP.p(t, T.emph + F(6), T.emph + F(16));
+    },
+    // the bars climb on one soft rollup, and the punchline gets the one small hit
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      { sfx: 'rollup', hit: LANDED, dur: Math.min(5, Math.max(0.5, LANDED - T.row0)), seed: 3, gain_db: -24, rate: 14 },
+      { sfx: 'swell', hit: T.emph + F(2), dur: 0.6, seed: 2, gain_db: -22 },
+      { sfx: 'impact', hit: T.emph + F(2), seed: 5, size: 0.6, gain_db: -14 },
+    ]),
   });
 </script>
 </body></html>

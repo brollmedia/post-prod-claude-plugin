@@ -1,0 +1,46 @@
+{
+  "name": "studio",
+  "for": "product films, launches, tech, software, tutorials",
+  "colours": {
+    "ink": "#F5F6F7",
+    "paper": "#0A0B0D",
+    "accent": "#5B8CFF",
+    "accent2": "#A7B4C7",
+    "muted": "#7B818A"
+  },
+  "fonts": {
+    "display": "Hanken Grotesk",
+    "body": "Hanken Grotesk",
+    "mono": "Geist Mono"
+  },
+  "typeset": {
+    "display_weight": 640,
+    "display_tracking": "-0.035em",
+    "display_case": "none",
+    "body_weight": 520,
+    "body_tracking": "-0.005em",
+    "corner": "14px"
+  },
+  "pace": 1.05,
+  "motion": {
+    "character": "quiet and exact: one move at a time, type resolves from slight blur, slow camera",
+    "enter": "enter",
+    "give": 0,
+    "stagger_frames": 3,
+    "main_frames": 18
+  },
+  "sound": "sparse: glassy ticks and one low hit on the title, silence around them",
+  "grain": 0.04,
+  "vignette": 0.15,
+  "graphics": [
+    "big type, tiny caption, nothing else",
+    "real screens only, soft large shadows"
+  ],
+  "rules": [
+    "take the accent from the product"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "wall"
+  }
+}

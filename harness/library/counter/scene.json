@@ -1,12 +1,13 @@
 {
-  "what": "Big counting number with a sub-line and a per-month sparkline that draws as it counts (the count is the running total of the months). Transparent, for over footage.",
-  "width": 1920, "height": 1080, "fps": 30, "duration": 5, "alpha": true,
+  "what": "Big counting number on a solid plate, with a sub-line and a sparkline that draws as it counts (the count is the running total of the values). side: left or right. Transparent, for over footage.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 8, "alpha": true,
   "props": {
     "tag": "Second Pour · cups sold in a year",
     "unit": "cups",
     "sub": "About 312 a day, 361 days open",
     "months": ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
     "values": [8420, 8160, 9210, 9340, 9620, 9480, 9050, 8710, 9870, 10260, 10380, 10140],
-    "duration": 5
+    "side": "left",
+    "duration": 8
   }
 }

@@ -1,0 +1,17 @@
+{
+  "what": "Quote card, full frame: a set-up line, then the payoff filling the width, the name at the foot of the frame. Words can act: drop dims a word that has had its moment, mark highlights the one that matters. Two forms, set by the look or by props.form: wall (one ground, huge type) and block (the payoff lands on a band of the accent that fills the lower part of the frame). Also 9:16.",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "duration": 8,
+  "alpha": false,
+  "props": {
+    "setup": "Nobody remembers the budget.",
+    "payoff": "They remember the feeling.",
+    "name": "Priya Nair",
+    "role": "Head of Engineering, Northwind",
+    "drop": "budget",
+    "mark": "feeling",
+    "duration": 8
+  }
+}

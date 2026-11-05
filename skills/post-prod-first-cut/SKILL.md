@@ -111,3 +111,6 @@ When the video is a short launch, product or explainer piece (30-90 s), or the s
 - Never cut more than the formula allows (it caps cuts at a quarter of the words) and never inside a sentence.
 - Long-form and Shorts are different: Retti's data is long-form only; say so if the user is making Shorts.
 - If a tool answers with a plan, allowance or permission error, report it as it is. Don't retry in a loop.
+
+## Titles and graphics in a first cut
+The cut comes first. Make any title or graphic the brief asks for with the `animate` skill, on the final timing, after the person has accepted the edits. The look still comes from their style guide, or `look.json` from the subject's world.

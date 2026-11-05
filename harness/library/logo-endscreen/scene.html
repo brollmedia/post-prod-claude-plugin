@@ -5,67 +5,65 @@
   body { width: 100vw; height: 100vh; position: relative; color: var(--pp-ink); font-family: var(--pp-body); }
   .abs { position: absolute; }
 
-  /* the logo: mark + wordmark, centred as one unit; moved and scaled as one */
+  /* the logo: mark + wordmark, one unit, moved and scaled as one */
   #logo { left: 50%; top: 50%; display: flex; align-items: center; gap: 2.6vmin; transform-origin: center center; will-change: transform; }
-  #logo .lockup { display: flex; flex-direction: column; align-items: flex-start; }
   #mark { width: 12vmin; height: 12vmin; overflow: visible; flex: none; }
-  .word { display: flex; overflow: hidden; padding: 0.6vmin 0 1.8vmin; margin: -0.6vmin 0 -1.8vmin; }
-  .word span { font-family: var(--pp-display); font-weight: 600; font-size: 13vmin; line-height: 1; letter-spacing: -0.025em; font-variation-settings: "opsz" 144, "SOFT" 30; display: inline-block; }
-  .tagwrap { overflow: hidden; margin: 1.4vmin 0 0 0.8vmin; }
-  #tagline { font-family: var(--pp-body); font-weight: 500; font-size: 1.8vmin; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-muted); white-space: nowrap; }
+  .word { overflow: hidden; white-space: nowrap; padding: 0.6vmin 0 1.8vmin; margin: -0.6vmin 0 -1.8vmin; }
+  .word span { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); font-size: 13vmin; line-height: 1; letter-spacing: var(--pp-dt, -0.025em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); display: inline-block; }
+  /* the tagline is its own line under the logo: at a readable size it is wider than the lockup */
+  #tagwrap { left: 50%; top: calc(50% + 10.5vmin); transform: translateX(-50%); overflow: hidden; text-align: center; }
+  #tagline { font-weight: var(--pp-bw, 560); letter-spacing: var(--pp-bt, 0); line-height: 1.2; color: var(--pp-ink); opacity: 0.84; text-wrap: balance; }
 
   /* subscribe row */
-  #subrow { left: 50%; top: 58%; display: flex; align-items: center; gap: 1.6vmin; transform: translate(-50%, 0); }
-  .btn { position: relative; height: 7vmin; border-radius: 3.5vmin; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
-  #sub { background: var(--pp-accent); color: var(--pp-paper); width: 28vmin; }
-  #sub .lbl { font-family: var(--pp-body); font-weight: 600; font-size: 2.7vmin; letter-spacing: 0.01em; white-space: nowrap; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1vmin; }
+  #subrow { left: 50%; top: 57%; display: flex; align-items: center; gap: 2.4vmin; transform: translate(-50%, 0); }
+  .btn { position: relative; height: 10vmin; border-radius: 5vmin; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  #sub { background: var(--pp-accent); color: var(--pp-paper); min-width: 36vmin; }
+  #sub .lbl { font-weight: 600; font-size: var(--t48); letter-spacing: var(--pp-bt, 0); white-space: nowrap; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1vmin; }
   #subB { color: var(--pp-ink); }
-  #sub .ring { position: absolute; inset: 0; border-radius: inherit; border: max(2px, 0.2vmin) solid var(--pp-muted); box-sizing: border-box; opacity: 0; }
-  #bell { width: 7vmin; border: max(2px, 0.2vmin) solid var(--pp-muted); }
-  #bell svg { width: 3.4vmin; height: 3.4vmin; overflow: visible; }
-  #cursor { left: 0; top: 0; width: 4.2vmin; height: 4.2vmin; overflow: visible; will-change: transform; transform-origin: 19% 10%; }
+  #sub .ring { position: absolute; inset: 0; border-radius: inherit; border: max(4px, 0.4vmin) solid var(--pp-ink); box-sizing: border-box; opacity: 0; }
+  #bell { width: 10vmin; border: max(4px, 0.4vmin) solid var(--pp-ink); }
+  #bell svg { width: 4.6vmin; height: 4.6vmin; overflow: visible; }
+  #cursor { left: 0; top: 0; width: 5vmin; height: 5vmin; overflow: visible; will-change: transform; transform-origin: 19% 10%; }
 
   /* end screen */
-  .vid .frame { position: absolute; inset: 0; overflow: hidden; border-radius: 0.6vmin; background: #0d0a08; }
+  .vid .frame { position: absolute; inset: 0; overflow: hidden; border-radius: 0.6vmin; background: color-mix(in oklab, var(--pp-ink) 12%, var(--pp-paper)); }
   .vid video { width: 100%; height: 100%; object-fit: cover; display: block; }
   .vid svg.edge { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  .vtitle { position: absolute; left: 0; bottom: calc(100% + 1.6vmin); display: flex; flex-direction: column; gap: 0.6vmin; }
-  .vtitle .m { overflow: hidden; padding-bottom: 0.4vmin; }
-  .vtitle .k { font-family: var(--pp-body); font-weight: 600; font-size: 1.6vmin; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pp-accent); white-space: nowrap; }
-  .vtitle .t { font-family: var(--pp-display); font-weight: 500; font-size: 3.3vmin; line-height: 1.1; letter-spacing: -0.01em; white-space: nowrap; }
+  .vtitle { position: absolute; left: 0; right: 0; bottom: calc(100% + 2vmin); display: flex; flex-direction: column; row-gap: 1vmin; }
+  .vtitle .m { overflow: hidden; padding-top: 0.14em; margin-top: -0.14em; }
+  .vtitle .k { font-weight: var(--pp-bw, 560); font-size: var(--t48); letter-spacing: var(--pp-bt, 0); line-height: 1.2; color: var(--pp-ink); opacity: 0.84; white-space: nowrap; }
+  .vtitle .t { font-family: var(--pp-display); font-weight: var(--pp-dw, 640); font-size: var(--t56); line-height: 1.1; letter-spacing: var(--pp-dt, -0.01em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); text-wrap: balance; }
   #circ svg { width: 100%; height: 100%; overflow: visible; }
 </style></head>
 <body>
   <div id="logo" class="abs">
     <svg id="mark" viewBox="-50 -50 100 100">
-      <g transform="rotate(-28)">
+      <g id="bean" transform="rotate(-28)">
         <ellipse id="beanFill" cx="0" cy="0" rx="31" ry="43" fill="var(--pp-accent)" opacity="0"/>
         <path id="beanLine" d="M0 -43 C17.1 -43 31 -23.7 31 0 C31 23.7 17.1 43 0 43 C-17.1 43 -31 23.7 -31 0 C-31 -23.7 -17.1 -43 0 -43 Z" pathLength="1" fill="none" stroke="var(--pp-accent)" stroke-width="4.2" stroke-linecap="round"/>
         <path id="groove" d="M1 -36 C-10 -20 10 -10 0 2 C-10 14 10 22 -1 36" pathLength="1" fill="none" stroke="var(--pp-paper)" stroke-width="4.6" stroke-linecap="round"/>
       </g>
     </svg>
-    <div class="lockup">
-      <div class="word" id="word"></div>
-      <div class="tagwrap"><div id="tagline"></div></div>
-    </div>
+    <div class="word" id="word"></div>
   </div>
+  <div id="tagwrap" class="abs"><div id="tagline"></div></div>
 
   <div id="subrow" class="abs">
     <div class="btn" id="sub">
       <div class="ring" id="subRing"></div>
       <div class="lbl" id="subA"></div>
-      <div class="lbl" id="subB"><svg viewBox="0 0 24 24" style="width:2.6vmin;height:2.6vmin"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--pp-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="subBt"></span></div>
+      <div class="lbl" id="subB"><svg viewBox="0 0 24 24" style="width:3.8vmin;height:3.8vmin"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--pp-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="subBt"></span></div>
     </div>
     <div class="btn" id="bell">
-      <svg viewBox="0 0 24 24"><path id="bellBody" d="M12 3.2c-3.3 0-5.8 2.6-5.8 5.9v4.4L4.4 16.6h15.2l-1.8-3.1V9.1C17.8 5.8 15.3 3.2 12 3.2z" fill="none" stroke="var(--pp-ink)" stroke-width="1.8" stroke-linejoin="round"/><path id="bellClap" d="M9.6 19.2a2.5 2.5 0 0 0 4.8 0" fill="none" stroke="var(--pp-ink)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 24 24"><path id="bellBody" d="M12 3.2c-3.3 0-5.8 2.6-5.8 5.9v4.4L4.4 16.6h15.2l-1.8-3.1V9.1C17.8 5.8 15.3 3.2 12 3.2z" fill="none" stroke="var(--pp-ink)" stroke-width="2" stroke-linejoin="round"/><path id="bellClap" d="M9.6 19.2a2.5 2.5 0 0 0 4.8 0" fill="none" stroke="var(--pp-ink)" stroke-width="2" stroke-linecap="round"/></svg>
     </div>
   </div>
 
   <div id="vids"></div>
   <div id="circ" class="abs">
     <svg viewBox="-50 -50 100 100">
-      <circle id="circLine" r="48" pathLength="1" fill="none" stroke="var(--pp-ink)" stroke-opacity="0.55" stroke-width="1.4" transform="rotate(-90)"/>
-      <g id="circMark" opacity="0"><g transform="rotate(-28) scale(0.55)">
+      <circle id="circLine" r="48" pathLength="1" fill="none" stroke="var(--pp-ink)" stroke-opacity="0.6" stroke-width="1.6" transform="rotate(-90)"/>
+      <g id="circMark" opacity="0"><g id="circBean" transform="rotate(-28) scale(0.55)">
         <ellipse rx="31" ry="43" fill="var(--pp-accent)"/>
         <path d="M1 -36 C-10 -20 10 -10 0 2 C-10 14 10 22 -1 36" fill="none" stroke="var(--pp-paper)" stroke-width="4.6" stroke-linecap="round"/>
       </g></g>
@@ -76,125 +74,154 @@
 
 <script src="../../pp-scene.js"></script>
 <script>
-  const P = PP.props, $ = (id) => document.getElementById(id), k = PP.pace;
-  const D = +P.duration || 10;
-  const W = PP.size.width, H = PP.size.height, portrait = H > W;
-  const vw = W / 100, vh = H / 100, vmin = Math.min(W, H) / 100;
+  const P = PP.props, $ = (id) => document.getElementById(id), F = PP.f;
+  const D = +P.duration || 13;
+  const W = PP.size.width, H = PP.size.height, portrait = H > W, u = Math.min(W, H) / 1080;
+  const vw = W / 100, vh = H / 100, vmin = Math.min(W, H) / 100, side = W * (portrait ? 0.1 : 0.05);
   const E = PP.ease;
+  document.documentElement.style.setProperty('--t48', `${Math.round(48 * u)}px`);
+  document.documentElement.style.setProperty('--t56', `${Math.round(56 * u)}px`);
+  const paint = PP.ground({ light: [0.3, 0.2] });
 
   // content
   const letters = [...(P.name || 'Grounds')].map((ch) => { const s = document.createElement('span'); s.textContent = ch; $('word').appendChild(s); return s; });
   $('tagline').textContent = P.tagline || '';
   $('subA').textContent = P.subscribe || 'Subscribe';
   $('subBt').textContent = P.subscribed || 'Subscribed';
+  // props.logo: the creator's own mark, a file in the scene folder. Without one the sample's bean is drawn.
+  if (P.logo) for (const [g, size] of [[$('bean'), 100], [$('circBean'), 58]]) {
+    const im = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    im.setAttribute('href', P.logo); im.setAttribute('x', -size / 2); im.setAttribute('y', -size / 2); im.setAttribute('width', size); im.setAttribute('height', size);
+    g.parentNode.appendChild(im); g.style.display = 'none';
+  }
 
-  // End-screen layout. 16:9: YouTube's "two videos + subscribe" template, kept inside its end-screen area: videos 30% of the
-  // width, side by side, the subscribe circle centred under them, everything clear of the bottom 15% (player controls).
-  // 9:16: stacked.
-  const vwid = portrait ? 80 * vw : 30 * vw, vhgt = vwid * 9 / 16;
+  // End-screen layout. 16:9: two videos side by side, hung from the left margin with their titles over them, and the subscribe circle
+  // beside them, everything clear of the bottom 15% (player controls). 9:16: stacked on the same left edge.
+  const vwid = portrait ? 80 * vw : 30 * vw, vhgt = vwid * 9 / 16, gapV = 2.5 * vw;
   const L = portrait
-    ? { x1: 10 * vw, y1: 19 * vh, x2: 10 * vw, y2: 19 * vh + vhgt + 9 * vh, cd: 9 * vh, logoTop: 5.5 * vh }
-    : { x1: 50 * vw - vwid - 1.5 * vw, y1: 31 * vh, x2: 51.5 * vw, y2: 31 * vh, cd: 15 * vh, logoTop: 8 * vh };
-  L.cx = 50 * vw; L.cy = (portrait ? L.y2 + vhgt + 3.5 * vh : L.y1 + vhgt + 5 * vh) + L.cd / 2;
+    ? { x1: side, y1: 23 * vh, x2: side, y2: 23 * vh + vhgt + 9 * vh, cd: 9 * vh }
+    : { x1: side, y1: 42 * vh, x2: side + vwid + gapV, y2: 42 * vh, cd: 26 * vh };
+  L.cx = portrait ? side + L.cd / 2 : (L.x2 + vwid + W - side) / 2; L.cy = portrait ? L.y2 + vhgt + 2 * vh + L.cd / 2 : L.y1 + vhgt / 2;
   const vids = (P.videos || []).slice(0, 2).map((v, i) => {
     const d = document.createElement('div'); d.className = 'vid abs';
-    Object.assign(d.style, { left: (i ? L.x2 : L.x1) + 'px', top: (i ? L.y2 : L.y1) + 'px', width: vwid + 'px', height: vhgt + 'px' });
-    d.innerHTML = `<div class="frame"><video muted playsinline preload="auto"></video></div>
-      <svg class="edge" viewBox="0 0 ${vwid} ${vhgt}"><rect x="0" y="0" width="${vwid}" height="${vhgt}" rx="${0.6 * vmin}" pathLength="1" fill="none" stroke="var(--pp-ink)" stroke-opacity="0.7" stroke-width="2"/></svg>
+    Object.assign(d.style, { left: `${i ? L.x2 : L.x1}px`, top: `${i ? L.y2 : L.y1}px`, width: `${vwid}px`, height: `${vhgt}px` });
+    d.innerHTML = `<div class="frame"></div>
+      <svg class="edge" viewBox="0 0 ${vwid} ${vhgt}"><rect x="0" y="0" width="${vwid}" height="${vhgt}" rx="${0.6 * vmin}" pathLength="1" fill="none" stroke="var(--pp-ink)" stroke-opacity="0.7" stroke-width="4"/></svg>
       <div class="vtitle"><div class="m"><div class="k"></div></div><div class="m"><div class="t"></div></div></div>`;
-    const vid = d.querySelector('video'); if (v.src) vid.src = v.src;
-    // Work-around (harness, 4 Nov 2026): after each seek the harness waits for requestVideoFrameCallback, which headless
-    // Chrome never fires on a paused video, and its 3 s fallback timer runs on the harness's frozen clock, so the render
-    // hangs. Without rVFC the harness takes 'seeked' (the new frame is decoded by then) as done.
-    Object.defineProperty(vid, 'requestVideoFrameCallback', { value: undefined });
+    // a <video> only when there is footage: one with no source costs the harness seconds a frame
+    if (v.src) {
+      const vid = document.createElement('video'); vid.muted = true; vid.playsInline = true; vid.preload = 'auto'; vid.src = v.src;
+      // Work-around (harness, 4 Nov 2026): after each seek the harness waits for requestVideoFrameCallback, which headless
+      // Chrome never fires on a paused video, and its 3 s fallback timer runs on the harness's frozen clock, so the render
+      // hangs. Without rVFC the harness takes 'seeked' (the new frame is decoded by then) as done.
+      Object.defineProperty(vid, 'requestVideoFrameCallback', { value: undefined });
+      d.querySelector('.frame').appendChild(vid);
+    }
     d.querySelector('.k').textContent = v.label || '';
     d.querySelector('.t').textContent = v.title || '';
     $('vids').appendChild(d);
-    return { frame: d.querySelector('.frame'), rect: d.querySelector('rect'), k: d.querySelector('.k'), t: d.querySelector('.t') };
+    return { frame: d.querySelector('.frame'), rect: d.querySelector('rect'), k: d.querySelector('.k'), t: d.querySelector('.t'), box: d.querySelector('.vtitle') };
   });
-  Object.assign($('circ').style, { width: L.cd + 'px', height: L.cd + 'px', left: (L.cx - L.cd / 2) + 'px', top: (L.cy - L.cd / 2) + 'px' });
+  Object.assign($('circ').style, { width: `${L.cd}px`, height: `${L.cd}px`, left: `${L.cx - L.cd / 2}px`, top: `${L.cy - L.cd / 2}px` });
 
-  // timeline (seconds; scaled by the creator's pace)
-  // start times are fixed so the beats land the same at any pace; the pace scales how long each move takes
-  const T = { draw: 0.2, fill: 1.1, word: 0.75, tag: 1.45, up: 2.8, row: 3.1, cur: 3.4, press1: 4.6, cur2: 4.95, press2: 5.75, rowOut: 6.3, endLogo: 6.3, boxes: 6.75, circ: 7.2 };
+  // The beats. Start times are seconds, so the tagline and the end screen always get their read; each move's length is in frames and scales with the look.
+  const T = { draw: -1,  fill: 1.0, word: 0.75, tag: 1.35, tagOut: 4.05, up: 4.3, row: 4.6, cur: 4.9, press1: 6.1, cur2: 6.45, press2: 7.2, rowOut: 7.75, endLogo: 7.75, boxes: 8.2, circ: 8.7 };
 
-  let tgt = null, logoH = 0;
+  let tgt = null, logoW = 0, logoH = 0, fitS = 1;
   PP.scene({
     duration: D,
     setup() {
       // where the cursor clicks: the buttons' centres where they rest
       const c = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
       tgt = { sub: c($('sub')), bell: c($('bell')) };
-      logoH = $('logo').getBoundingClientRect().height;
+      $('tagline').style.fontSize = `${Math.round(48 * u)}px`; $('tagwrap').style.width = `${W * (portrait ? 0.8 : 0.9)}px`;
+      const r = $('logo').getBoundingClientRect(); logoW = r.width; logoH = r.height;
+      fitS = Math.min(1, (W * 0.8) / logoW);                    // a long name still fits
+      // both video titles start on the same line, however many lines each one takes
+      const most = Math.max(...vids.map((v) => v.box.getBoundingClientRect().height), 0);
+      for (const v of vids) v.box.style.height = `${most}px`;
       for (const v of document.querySelectorAll('video')) v.pause();
     },
     frame(t) {
+      paint(t);
       // 1. logo: the outline draws, the bean fills, the groove cuts in; letters rise out of a mask
-      const dr = PP.p(t, T.draw, T.draw + 1.0 * k, E.inOut);
+      const dr = PP.p(t, T.draw, T.draw + F(26), E.inOut);
       $('beanLine').style.strokeDasharray = dr >= 1 ? 'none' : '1 1'; $('beanLine').style.strokeDashoffset = 1 - dr;
-      $('beanFill').setAttribute('opacity', PP.p(t, T.fill - 0.15 * k, T.fill + 0.3 * k, E.out));
-      const gr = PP.p(t, T.fill, T.fill + 0.55 * k, E.inOut);
+      $('beanFill').setAttribute('opacity', PP.p(t, T.fill - F(4), T.fill + F(8), E.out));
+      const gr = PP.p(t, T.fill, T.fill + F(14), E.inOut);
       $('groove').style.strokeDasharray = '1 1'; $('groove').style.strokeDashoffset = 1 - gr;
-      $('groove').style.visibility = gr > 0 ? 'visible' : 'hidden';
-      letters.forEach((s, i) => { const p = PP.p(t, T.word + i * 0.05 * k, T.word + i * 0.05 * k + 0.55 * k, E.out); s.style.transform = `translateY(${(1 - p) * 115}%)`; });
-      const tp = PP.p(t, T.tag, T.tag + 0.5 * k, E.out); $('tagline').style.transform = `translateY(${(1 - tp) * 115}%)`;
+      $('groove').style.opacity = PP.p(t, T.fill, T.fill + F(3));
+      letters.forEach((s, i) => { const a = T.word + i * F(2), p = PP.p(t, a, a + F(28), PP.enter); s.style.transform = `translateY(${(1 - p) * 124}%)`; });
+      const tp = PP.p(t, T.tag, T.tag + F(14), PP.enter), tOut = PP.ease.exit(PP.clamp((t - T.tagOut) / F(8)));
+      $('tagline').style.transform = `translateY(${(1 - tp) * 104}%)`; $('tagwrap').style.opacity = 1 - tOut;
 
-      // logo position: centre, then up for the subscribe beat, then small at the top for the end screen
-      const up = PP.p(t, T.up, T.up + 0.6 * k, E.inOut), end = PP.p(t, T.endLogo, T.endLogo + 0.7 * k, E.inOut);
-      const y1 = -11 * vh, s1 = 0.78, sEnd = portrait ? 0.5 : 0.42;
-      const yEnd = L.logoTop + logoH * sEnd / 2 - 50 * vh;
-      const y = PP.lerp(PP.lerp(0, y1, up), yEnd, end), s = PP.lerp(PP.lerp(1, s1, up), sEnd, end);
-      $('logo').style.transform = `translate(-50%, -50%) translateY(${y}px) scale(${s})`;
-      $('tagline').parentNode.style.opacity = 1 - PP.p(t, T.endLogo, T.endLogo + 0.35 * k);
+      // logo position: centre, then up for the subscribe beat, then small at the top left for the end screen
+      const up = PP.p(t, T.up, T.up + F(16), E.move), end = PP.p(t, T.endLogo, T.endLogo + F(12), E.move);
+      const y1 = -11 * vh, s1 = 0.78, sEnd = portrait ? 0.46 : 0.44;
+      const yEnd = 8 * vh + logoH * sEnd / 2 - 50 * vh, xEnd = side + logoW * sEnd * fitS / 2 - W / 2;
+      const x = PP.lerp(0, xEnd, end), y = PP.lerp(PP.lerp(0, y1, up), yEnd, end), s = PP.lerp(PP.lerp(1, s1, up), sEnd, end) * fitS;
+      $('logo').style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${s})`;
 
       // 2. subscribe row
-      const rowIn = PP.p(t, T.row, T.row + 0.5 * k, E.out), rowOut = PP.p(t, T.rowOut, T.rowOut + 0.4 * k, E.in);
-      $('subrow').style.opacity = rowIn * (1 - rowOut);
+      const rowIn = PP.p(t, T.row, T.row + F(14), PP.enter), rowOut = PP.ease.exit(PP.clamp((t - T.rowOut) / F(9)));
+      $('subrow').style.opacity = PP.p(t, T.row, T.row + F(6)) * (1 - rowOut);
       $('subrow').style.transform = `translate(-50%, ${(1 - rowIn) * 2.5 * vmin - rowOut * 2 * vmin}px)`;
       // presses: down 120 ms, back up 220 ms, no overshoot
       const press = (a) => t < a ? 0 : t < a + 0.12 ? E.out((t - a) / 0.12) : 1 - E.out(Math.min(1, (t - a - 0.12) / 0.22));
       const p1 = press(T.press1), p2 = press(T.press2);
       $('sub').style.transform = `scale(${1 - 0.04 * p1})`;
       $('bell').style.transform = `scale(${1 - 0.06 * p2})`;
-      // subscribed: the fill gives way to a quiet outline, the label crossfades
-      const sw = PP.p(t, T.press1 + 0.08, T.press1 + 0.38, E.out);
+      // subscribed: the fill gives way to an outline; one label is gone before the other comes, so the two never sit on each other
+      const sw = PP.p(t, T.press1 + 0.08, T.press1 + 0.38, E.out), swA = PP.p(t, T.press1 + 0.04, T.press1 + 0.16), swB = PP.p(t, T.press1 + 0.18, T.press1 + 0.34);
       $('sub').style.background = `color-mix(in srgb, var(--pp-accent) ${(1 - sw) * 100}%, transparent)`;
       $('subRing').style.opacity = sw;
-      $('subA').style.opacity = 1 - sw; $('subB').style.opacity = sw;
+      $('subA').style.opacity = 1 - swA; $('subB').style.opacity = swB;
       const bw = PP.p(t, T.press2 + 0.08, T.press2 + 0.38, E.out);
       $('bellBody').setAttribute('fill', 'var(--pp-accent)'); $('bellBody').setAttribute('fill-opacity', bw);
       const bc = `color-mix(in srgb, var(--pp-accent) ${bw * 100}%, var(--pp-ink))`;
       $('bellBody').style.stroke = bc; $('bellClap').style.stroke = bc;
-      $('bell').style.borderColor = `color-mix(in srgb, var(--pp-accent) ${bw * 100}%, var(--pp-muted))`;
+      $('bell').style.borderColor = bc;
 
       // cursor: glides in from the lower right, clicks subscribe, then the bell, then leaves
-      const hot = { x: 0.19 * 4.2 * vmin, y: 0.1 * 4.2 * vmin };   // the arrow's tip inside its box
+      const hot = { x: 0.19 * 5 * vmin, y: 0.1 * 5 * vmin };   // the arrow's tip inside its box
       const start = { x: 80 * vw, y: 96 * vh }, off = { x: 76 * vw, y: 110 * vh };
       const aim = (pt) => ({ x: pt.x + 0.8 * vmin, y: pt.y + 0.6 * vmin });
-      const a = PP.p(t, T.cur, T.cur + 0.85 * k, E.inOut), b = PP.p(t, T.cur2, T.cur2 + 0.55 * k, E.inOut), c = PP.p(t, T.press2 + 0.4, T.press2 + 0.4 + 0.6 * k, E.in);
+      const a = PP.p(t, T.cur, T.cur + F(22), E.move), b = PP.p(t, T.cur2, T.cur2 + F(16), E.move), c = PP.p(t, T.press2 + 0.4, T.press2 + 0.4 + F(14), E.exit);
       const s0 = aim(tgt.sub), b0 = aim(tgt.bell);
       const cx = PP.lerp(PP.lerp(PP.lerp(start.x, s0.x, a), b0.x, b), off.x, c);
       const cy = PP.lerp(PP.lerp(PP.lerp(start.y, s0.y, a), b0.y, b), off.y, c);
-      const ci = PP.p(t, T.cur, T.cur + 0.3 * k), co = PP.p(t, T.press2 + 0.55, T.press2 + 0.55 + 0.4 * k);
+      const ci = PP.p(t, T.cur, T.cur + F(8)), co = PP.p(t, T.press2 + 0.55, T.press2 + 0.55 + F(8));
       $('cursor').style.opacity = ci * (1 - co);
       $('cursor').style.transform = `translate(${cx - hot.x}px, ${cy - hot.y}px) scale(${1 - 0.1 * Math.max(p1, p2)})`;
 
       // 3. end screen: frames draw, the footage fades up inside, titles rise; then the subscribe circle
       vids.forEach((v, i) => {
-        const a0 = T.boxes + i * 0.15 * k;
-        const ed = PP.p(t, a0, a0 + 0.7 * k, E.inOut);
+        const a0 = T.boxes + i * F(4);
+        const ed = PP.p(t, a0, a0 + F(18), E.inOut);
         v.rect.style.strokeDasharray = ed >= 1 ? 'none' : '1 1'; v.rect.style.strokeDashoffset = 1 - ed;
-        v.rect.setAttribute('stroke-opacity', PP.lerp(0.7, 0.2, PP.p(t, a0 + 0.6 * k, a0 + 1.1 * k)));
-        v.frame.style.opacity = PP.p(t, a0 + 0.35 * k, a0 + 0.9 * k, E.out);
-        const kt = PP.p(t, a0 + 0.3 * k, a0 + 0.8 * k), tt = PP.p(t, a0 + 0.4 * k, a0 + 0.9 * k);
-        v.k.style.transform = `translateY(${(1 - kt) * 115}%)`; v.t.style.transform = `translateY(${(1 - tt) * 115}%)`;
+        v.rect.style.opacity = PP.p(t, a0, a0 + F(3));
+        v.rect.setAttribute('stroke-opacity', PP.lerp(0.7, 0.25, PP.p(t, a0 + F(16), a0 + F(28))));
+        v.frame.style.opacity = PP.p(t, a0 + F(9), a0 + F(24), E.out);
+        const kt = PP.p(t, a0 + F(8), a0 + F(22), PP.enter), tt = PP.p(t, a0 + F(11), a0 + F(25), PP.enter);
+        v.k.style.transform = `translateY(${(1 - kt) * 136}%)`; v.t.style.transform = `translateY(${(1 - tt) * 136}%)`;   // far enough that an accent on a capital never peeks out of the mask
       });
-      const cl = PP.p(t, T.circ, T.circ + 0.8 * k, E.inOut);
-      $('circLine').style.strokeDasharray = cl >= 1 ? 'none' : '1 1';   // 'none' once drawn: no seam at the join $('circLine').style.strokeDashoffset = 1 - cl;
-      $('circMark').setAttribute('opacity', PP.p(t, T.circ + 0.45 * k, T.circ + 0.9 * k));
+      const cl = PP.p(t, T.circ, T.circ + F(20), E.inOut);
+      $('circLine').style.strokeDasharray = cl >= 1 ? 'none' : '1 1';   // 'none' once drawn: no seam at the join
+      $('circLine').style.strokeDashoffset = 1 - cl;
+      $('circLine').style.opacity = PP.p(t, T.circ, T.circ + F(3));
+      $('circMark').setAttribute('opacity', PP.p(t, T.circ + F(12), T.circ + F(24)));
       // (never hide the videos with visibility/display: the harness waits for a painted video frame on every seek)
       $('circ').style.visibility = t >= T.circ ? 'visible' : 'hidden';
     },
+    // the logo lands once, the two clicks are real clicks, and the end screen comes in on one soft move; then quiet, for the voice-over
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
+      { sfx: 'swell', hit: T.word + F(14), dur: 0.8, seed: 3, gain_db: -18 },
+      { sfx: 'impact', hit: T.word + F(14), seed: 6, size: 0.9, gain_db: -12 },
+      { sfx: 'tick', hit: T.press1, seed: 3, note: 1900, gain_db: -22 },
+      { sfx: 'tick', hit: T.press2, seed: 5, note: 2200, gain_db: -23 },
+      { sfx: 'whoosh', hit: T.endLogo + F(5), dur: 0.6, seed: 4, gain_db: -22 },
+    ]),
   });
 </script>
 </body></html>

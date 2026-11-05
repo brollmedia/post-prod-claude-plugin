@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { run, probe, FF, loadWords } from './footage-run.js';
+import { levelGain, UNDER_VOICE } from './harness-sound.js';
 
 const err = (code, message) => Object.assign(new Error(message), { code });
 const num = (x) => (Math.round(x * 1e6) / 1e6).toString();
@@ -150,6 +151,7 @@ export function fxGraph(layers, { W, H, fps, font = null, wordsOf = () => null, 
   for (const l of layers.filter((x) => x.type === 'graphic')) {
     const idx = inputs.length + 1, still = /\.(png|jpe?g|webp|gif)$/i.test(l.file);
     inputs.push(still ? ['-loop', '1', '-t', num(l.to - l.from + 0.1), '-i', l.file] : ['-i', l.file]);
+    l.input = still ? null : idx;
     const [bx, by, bw, bh] = l.mode === 'box' ? l.area : [0, 0, 1, 1];
     const w = even(bw * W), h = even(bh * H), x = even(bx * W), y = even(by * H);
     const g = next(), o = next();
@@ -229,6 +231,24 @@ export async function inkOf(input, layers) {
 }
 
 /** Apply an effect list. spec: { input, output, layers: [...], words?, words_from? }. -> { file, layers, check } */
+/**
+ * May this list draw a title (5 Nov 2026)? A title layer is plain drawn text with no look and no check, so a new title goes the graphic route,
+ * where both apply and a final has to pass. Allowed: a layer marked plain (they asked for plain text), a list marked existing, or a list that
+ * came out of a version's working files, which is what a change to an earlier list looks like: the job unpacks post-prod-folder/zips/v<n>-files.zip.
+ * → { ok } or { ok: false, code, message }
+ */
+export function titleGate(spec, listPath) {
+  const layers = Array.isArray(spec?.layers) ? spec.layers : [];
+  const fresh = layers.filter((l) => l?.type === 'title' && l.plain !== true);
+  if (!fresh.length || spec?.existing === true) return { ok: true };
+  for (let d = path.dirname(path.resolve(listPath)), i = 0; i < 6; i++, d = path.dirname(d)) {
+    const z = path.join(d, 'zips');
+    if (fs.existsSync(z) && fs.readdirSync(z).some((f) => /\.zip$/i.test(f))) return { ok: true };
+    if (path.dirname(d) === d) break;
+  }
+  return { ok: false, code: 'NEW_TITLE', message: `A new title is a graphic, not a title layer: it needs a look and check. Make it as references/hyperframes.md says, then lay it on with a graphic layer. If they asked for plain text, add "plain": true to the layer ("${String(fresh[0].text || '').slice(0, 40)}"). If this list came from an earlier version, add "existing": true at the top of it.` };
+}
+
 export async function applyEffects(spec, { base = process.cwd(), quality = 'high', log = () => {} } = {}) {
   const input = path.resolve(base, spec.input || '');
   if (!fs.existsSync(input)) throw err('NO_SOURCE', `No file at ${input}.`);
@@ -263,7 +283,22 @@ export async function applyEffects(spec, { base = process.cwd(), quality = 'high
     const out = path.resolve(base, spec.output || input.replace(/(\.[^.]+)?$/, '-fx.mp4'));
     const crf = quality === 'draft' ? '23' : '16';
     log(`effects: ${layers.map((l) => l.type).join(', ')}`);
-    await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, ...g.inputs.flat(), '-filter_complex_script', script, '-map', g.out, '-map', '0:a?', '-c:a', 'copy',
+    // the video's own sound stays as it was, under a graphic's sound when that has any: brought down to the voice, which goes on over it
+    const sounded = [];
+    for (const l of layers.filter((x) => x.type === 'graphic' && x.input && x.sound !== false)) if ((await probe(l.file)).hasAudio) sounded.push(l);
+    let audio = ['-map', '0:a?', '-c:a', 'copy'];
+    if (sounded.length && info.hasAudio) {
+      const parts = [];
+      for (const [i, l] of sounded.entries()) {
+        const { gain_db } = await levelGain(l.file, input, { around: { from: Math.max(0, l.from - 20), to: l.to + 20 }, under: UNDER_VOICE.speech });
+        const ms = Math.round(l.from * 1000);
+        parts.push(`[${l.input}:a]atrim=0:${num(l.to - l.from)},asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,volume=${gain_db}dB,adelay=${ms}|${ms}[gs${i}]`);
+      }
+      parts.push(`[0:a]aresample=48000,aformat=channel_layouts=stereo[vo]`, `[vo]${sounded.map((_, i) => `[gs${i}]`).join('')}amix=inputs=${sounded.length + 1}:normalize=0:duration=first:dropout_transition=0,alimiter=limit=0.89:level=0[aout]`);
+      fs.writeFileSync(script, `${g.graph};${parts.join(';')}`);
+      audio = ['-map', '[aout]', '-c:a', 'aac', '-b:a', '256k'];
+    }
+    await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, ...g.inputs.flat(), '-filter_complex_script', script, '-map', g.out, ...audio,
       '-c:v', 'libx264', '-preset', quality === 'draft' ? 'veryfast' : 'medium', '-crf', crf, '-pix_fmt', 'yuv420p', '-r', num(fps), '-movflags', '+faststart', out]);
     const got = await probe(out);
     return { file: out, layers: layers.map((l) => ({ type: l.type, from: l.from, to: l.to })), length_s: got.duration, input_length_s: info.duration, warnings };
@@ -342,7 +377,7 @@ export function slopCheck(src) {
   const faces = [...s.matchAll(/font-family\s*:\s*([^;}{]+)/gi)].map((m) => firstFace(m[1]))
     .concat([...s.matchAll(/(?:^|[;{\s])font\s*:\s*[^;}{]*?\d+(?:\.\d+)?(?:px|em|rem|pt|%)(?:\s*\/\s*[\d.]+\w*)?\s+([^;}{]+)/gi)].map((m) => firstFace(m[1])));
   const DEFAULT = /^(inter|geist|arial|helvetica|helvetica neue|roboto|segoe ui|system-ui|-apple-system|blinkmacsystemfont|sans-serif|serif|ui-sans-serif|open sans|montserrat|poppins)$/;
-  const shown = /<(h[1-6]|p|span|div|li|text)[^>]*>\s*[^<\s]/i.test(s);
+  const shown = /<(h[1-6]|p|span|div|li|text)[^>]*>\s*[^<\s]/i.test(s.replace(/<script[\s\S]*?<\/script>/gi, ''));
   if (faces.some((f) => DEFAULT.test(f)) || (shown && !faces.length)) out.push('A default face (Inter, Arial, Poppins, the system font). Pick one that fits this video and niche, or theirs.');
   if (/background-clip\s*:\s*text/i.test(s)) out.push('Gradient-filled text. A solid colour reads as designed; size or weight carries the emphasis.');
   const PURPLE = /#(8b5cf6|7c3aed|6d28d9|a855f7|9333ea|6366f1|4f46e5|818cf8|c084fc|a78bfa)\b|\b(purple|violet|indigo|blueviolet|mediumpurple|rebeccapurple)\b/i;
@@ -350,7 +385,7 @@ export function slopCheck(src) {
   if (/\p{Extended_Pictographic}/u.test(s.replace(/<script[\s\S]*?<\/script>/gi, ''))) out.push('Emoji in the graphic (sparkles, rockets, fire). Show the real thing, or nothing.');
   const over = [...s.matchAll(/cubic-bezier\(([^)]*)\)/gi)].some((m) => { const v = m[1].split(',').map(Number); return v[1] > 1 || v[3] > 1 || v[1] < 0 || v[3] < 0; });
   if (over || /\b(bounce|elastic|easeOutBack|easeInOutBack|easeOutElastic|back\.out|elastic\.out|wiggle)\b/i.test(s)) out.push('Bounce, elastic or overshoot easing. Ease out and settle in 200-400 ms.');
-  if ([...s.matchAll(/(text-shadow|box-shadow|drop-shadow)\s*[:(]([^;]*)/gi)].some((m) => /\b([2-9]\d|\d{3,})px/.test(m[2]) && /(#[0-9a-f]{3,8}|rgba?\(|hsla?\()/i.test(m[2]) && !/rgba?\(\s*0\s*,\s*0\s*,\s*0|#000\b|#0{6}\b/i.test(m[2]))) out.push('A coloured glow. Contrast from the frame or a plain shadow instead.');
+  if ([...s.matchAll(/(text-shadow|box-shadow|drop-shadow)\s*[:(]([^;]*)/gi)].some((m) => /\b([2-9]\d|\d{3,})px/.test(m[2]) && /(#[0-9a-f]{3,8}|rgba?\(|hsla?\()/i.test(m[2]) && !/rgba?\(\s*0[\s,]+0[\s,]+0|#000[0-9a-f]?\b|#0{6}(?:[0-9a-f]{2})?\b/i.test(m[2]))) out.push('A coloured glow. Contrast from the frame or a plain shadow instead.');
   if (/backdrop-filter\s*:\s*blur/i.test(s)) out.push('A frosted-glass panel. Only where layering needs it.');
   return out;
 }

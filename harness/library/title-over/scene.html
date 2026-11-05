@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  /* Title-size type over footage needs the same thing a lower third does: a solid plate, not hope. Each line has its own plate, so the
+     shape of the words is the shape of the graphic, and the picture still shows around it. */
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { width: 100vw; height: 100vh; position: relative; }
+  .stack { position: absolute; display: flex; flex-direction: column; }
+  .plate { position: relative; overflow: hidden; background: var(--pp-paper); width: 0; }
+  .wipe { position: absolute; inset: 0; background: var(--pp-accent); z-index: 1; }
+  .inner { position: relative; box-sizing: border-box; width: max-content; }
+  .line { font-family: var(--pp-display); font-weight: var(--pp-dw, 700); letter-spacing: var(--pp-dt, -0.02em); text-transform: var(--pp-dc, none); font-variation-settings: var(--pp-dv, normal); color: var(--pp-ink); line-height: 1.1; white-space: nowrap; }
+  .kicker { font-family: var(--pp-body); font-weight: var(--pp-bw, 600); letter-spacing: var(--pp-bt, 0); line-height: 1.2; white-space: nowrap; }
+</style></head>
+<body>
+  <div class="stack" id="stack"></div>
+<script src="../../pp-scene.js"></script>
+<script>
+(() => {
+  const P = PP.props, F = PP.f, E = PP.enter, W = PP.size.width, H = PP.size.height, upright = H > W, u = Math.min(W, H) / 1080;
+  const D = +P.duration || 5, right = P.side === 'right', lines = (P.lines || []).slice(0, 2);
+  const accent = PP.style.colours?.accent || '#000000', on = PP.on(accent);
+  // a mid-tone accent carries neither ink nor paper at 7:1: the kicker goes on ink, and the accent stays in the sweeps
+  const kickerBg = on.ratio >= 7 ? accent : 'var(--pp-ink)', kickerInk = on.ratio >= 7 ? on.colour : 'var(--pp-paper)';
+  const parts = [];
+  const add = (cls, text, bg, ink) => {
+    const plate = document.createElement('div'), wipe = document.createElement('div'), inner = document.createElement('div'), el = document.createElement('div');
+    plate.className = 'plate'; wipe.className = 'wipe'; inner.className = 'inner'; el.className = cls; el.textContent = text;
+    if (bg) plate.style.background = bg; if (ink) el.style.color = ink;
+    inner.appendChild(el); plate.append(wipe, inner); document.getElementById('stack').appendChild(plate);
+    parts.push({ plate, wipe, inner, el, width: 0 }); return parts.at(-1);
+  };
+  // the first line is the hero and opens first; the kicker comes last, as a footnote to it
+  for (const l of lines) add('line', l);
+  if (P.kicker) add('kicker', P.kicker, kickerBg, kickerInk);
+  const OUT = D - F(16), OUTLEN = F(10), start = (i) => F(6) + i * F(7);
+  const LEN = F(16), SWEEP = F(9);
+
+  PP.scene({
+    duration: D,
+    setup() {
+      const maxW = W * (upright ? 0.84 : 0.56), small = 56 * u;
+      for (const x of parts) {
+        const isLine = x.el.className === 'line';
+        x.inner.style.padding = isLine ? `${Math.round(10 * u)}px ${Math.round(34 * u)}px ${Math.round(14 * u)}px` : `${Math.round(10 * u)}px ${Math.round(28 * u)}px`;
+        PP.fit(x.el, maxW - 68 * u, isLine ? (upright ? 120 : 148) * u : small, isLine ? 72 * u : 48 * u);
+        x.width = Math.ceil(x.inner.getBoundingClientRect().width);
+      }
+      const st = document.getElementById('stack');
+      st.style.alignItems = right ? 'flex-end' : 'flex-start'; st.style.gap = `${Math.round(8 * u)}px`;
+      st.style.bottom = `${Math.round(H * (upright ? 0.34 : 0.18))}px`;
+      st.style[right ? 'right' : 'left'] = `${Math.round(W * (upright ? 0.08 : 0.05))}px`;
+    },
+    frame(t) {
+      const out = PP.ease.exit(PP.clamp((t - OUT) / OUTLEN));
+      parts.forEach((x, i) => {
+        const a = start(i), open = PP.p(t, a, a + LEN, E) * (1 - out);
+        x.plate.style.width = `${Math.round(x.width * open * 10) / 10}px`;
+        x.plate.style.visibility = open > 0.002 ? 'visible' : 'hidden';
+        // the colour leaves over the words and uncovers them: no word sits half on one colour for longer than the edge takes to pass
+        x.wipe.style.transform = `translateX(${(right ? -1 : 1) * PP.p(t, a + F(7), a + F(7) + SWEEP, PP.ease.move) * 101}%)`;
+      });
+    },
+    // one move in, one tick as the title lands, a quieter move out
+    sound: () => (P.sound === false ? [] : [
+      { sfx: 'whoosh', hit: start(0) + LEN * 0.3, dur: 0.42, seed: 5, gain_db: -21, low: 400, high: 3800, dir: right ? 'left' : 'right' },
+      { sfx: 'tick', hit: start(0) + F(7) + SWEEP * 0.6, seed: 3, gain_db: -26, note: 1700 },
+      { sfx: 'whoosh', hit: OUT + OUTLEN * 0.5, dur: 0.28, seed: 8, gain_db: -27, low: 700, high: 3600, dir: right ? 'right' : 'left' },
+    ]),
+  });
+})();
+</script>
+</body></html>

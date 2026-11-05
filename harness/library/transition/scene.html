@@ -37,6 +37,8 @@
       $('lead').style.opacity = a > 0 && b < 1 ? 1 : 0;
       $('tail').style.opacity = b > 0 && b < 1 ? 1 : 0;
     },
+    // one whoosh, its peak on the cut under the panel
+    sound: () => (P.sound === false ? [] : [{ sfx: 'whoosh', hit: D / 2, dur: Math.min(2.5, Math.max(0.3, D * 1.1)), seed: 4, gain_db: -20, dir: P.direction === 'left' ? 'left' : 'right' }]),
   });
 </script>
 </body></html>

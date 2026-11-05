@@ -1,0 +1,45 @@
+{
+  "name": "classroom",
+  "for": "education, science, calm teaching, kids",
+  "colours": {
+    "ink": "#10263B",
+    "paper": "#D6E8F7",
+    "accent": "#D94E06",
+    "accent2": "#2F7DD1",
+    "muted": "#4D6275"
+  },
+  "fonts": {
+    "display": "Figtree",
+    "body": "Figtree",
+    "mono": "IBM Plex Mono"
+  },
+  "typeset": {
+    "display_weight": 800,
+    "display_tracking": "-0.02em",
+    "display_case": "none",
+    "body_weight": 600,
+    "body_tracking": "0"
+  },
+  "pace": 1.1,
+  "motion": {
+    "character": "patient: one step at a time, each change named before it happens",
+    "enter": "enter",
+    "give": 0.12,
+    "stagger_frames": 4,
+    "main_frames": 18
+  },
+  "sound": "a light bed, a soft pop per annotation",
+  "grain": 0,
+  "vignette": 0,
+  "graphics": [
+    "concrete example first, then the idea",
+    "colour means the same thing throughout"
+  ],
+  "rules": [
+    "one idea per frame"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "block"
+  }
+}

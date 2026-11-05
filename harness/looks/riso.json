@@ -1,0 +1,45 @@
+{
+  "name": "riso",
+  "for": "music, comedy, youth culture, memes, zines: loud two-ink print",
+  "colours": {
+    "ink": "#14123A",
+    "paper": "#FF93B8",
+    "accent": "#054A44",
+    "accent2": "#FFF04D",
+    "muted": "#5C1F4A"
+  },
+  "fonts": {
+    "display": "Bricolage Grotesque",
+    "body": "Figtree",
+    "mono": "IBM Plex Mono"
+  },
+  "typeset": {
+    "display_weight": 800,
+    "display_tracking": "-0.035em",
+    "display_case": "none",
+    "display_axes": "\"wdth\" 75",
+    "body_weight": 700,
+    "body_tracking": "0"
+  },
+  "pace": 0.8,
+  "motion": {
+    "character": "cheeky: stepped on 2s, off-register slips, things slap on and wobble",
+    "enter": "snap",
+    "give": 0.3,
+    "stagger_frames": 2,
+    "main_frames": 10
+  },
+  "sound": "pops and slaps, a dry rimshot on the joke",
+  "grain": 0.05,
+  "vignette": 0,
+  "graphics": [
+    "two inks, one flat colour, a print slip"
+  ],
+  "rules": [
+    "if it is not funny or loud, use another look"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "block"
+  }
+}

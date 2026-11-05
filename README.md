@@ -1,6 +1,6 @@
 # post-prod.io for Claude Code
 
-A Claude Code plugin that connects Claude Code to post-prod.io (video review with notes on exact frames) and adds one skill, `post-prod-review`, which runs the whole loop: upload a version, share a review link, read the feedback with frames and timecodes, make the change, upload the next version, and check which notes it fixed.
+A Claude Code plugin that connects Claude Code to post-prod.io (video review with notes on exact frames) and adds skills. `post-prod-review` runs the whole loop: upload a version, share a review link, read the feedback with frames and timecodes, make the change, upload the next version, and check which notes it fixed.
 
 - Server: `https://mcp.post-prod.io/mcp` (remote, HTTP transport, OAuth sign-in in the browser)
 - Needs a paid post-prod.io plan (Creator, Creator+ or Agency)
@@ -26,6 +26,10 @@ claude plugin install post-prod@post-prod
 Then run `/mcp`, choose `post-prod` and sign in. Ask Claude: "send this render to post-prod for review", or run the skill directly as `/post-prod:post-prod-review`.
 
 Not wanting the plugin? The server alone is one command: `claude mcp add --transport http post-prod https://mcp.post-prod.io/mcp`.
+
+## Motion graphics: `/post-prod:animate`
+
+Ask for any graphic (a lower third, a stat reveal, a title sequence, a map, a chart) and Claude makes it with sound, with no reference or style guide needed. It reads `craft/CORE.md`, picks a look by the video's subject, starts from a scene in `harness/library/`, measures every frame with `animate.mjs check`, and measures the sound, because Claude cannot hear. A style profile or reference, when there is one, sets the look on top of that.
 
 ## Edit with Claude: `/post-prod:watch`
 

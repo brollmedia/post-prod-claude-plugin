@@ -33,6 +33,9 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { run, probe, FF } from './footage-run.js';
 import { findBrowser, slopCheck, CLOCK, cdp } from './footage-fx.js';
+import { PROBE, PATHS, analyseLineThrough, analyseNumerals, LIMITS, analyseLayout, analyseInk, analysePointers, settleThin, analyseDeadZone, analyseLook, analyseStale, analyseHero, analyseFirstFrame, analyseSilence, changesIn, contentGrid, emptyBands, recentLooks, rememberLook, analyseCentre, analyseMotion, motionTracks, keyMoments, sheetHtml, summarise, wordsIn, parseRgb, luminance, contrast, fileUrl, textBlocks } from './harness-check.js';
+import { hfCheckCopy } from './harness-hf.js';
+import { makeSfx, soundCheck, parseEbur, isMastered, levelGain, levelInto, MASTERED_TAG, UNDER_VOICE, SFX_KINDS } from './harness-sound.js';
 
 const err = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
 export const FORMATS = ['mp4', 'prores', 'webm', 'png'];
@@ -70,13 +73,18 @@ function sourceText(entry) {
   for (const m of s.matchAll(/<(?:link[^>]+href|script[^>]+src)=["']([^"':]+\.(?:css|js|mjs))["']/gi)) {
     const f = path.resolve(dir, m[1]);
     // the harness's own scene kit is checked once, by its tests, not as part of every scene
-    if (fs.existsSync(f) && !/pp-scene\.js$|three(\.module)?(\.min)?\.js$/.test(f)) s += '\n' + fs.readFileSync(f, 'utf8');
+    if (fs.existsSync(f) && !/pp-scene\.js$|three(\.module)?(\.min)?\.js$|gsap[\w.-]*\.js$/i.test(f)) s += '\n' + fs.readFileSync(f, 'utf8');
   }
   return s;
 }
 
 // ── style in ──
 const ROLE = [['paper', /\b(background|paper|base|bg)\b/i], ['ink', /\b(text|ink|type|foreground)\b/i], ['accent', /\b(accent|brand|highlight|primary|key)\b/i], ['accent2', /\b(second|secondary|support|alt)\b/i], ['muted', /\b(muted|grey|gray|neutral|subtle)\b/i]];
+/** The folder's own style.json (`animate.mjs new --look` writes one), when nothing else is given. */
+function styleOf(o, m, dir) {
+  if (o.style || m.style) return o.style || m.style;
+  try { return JSON.parse(fs.readFileSync(path.join(dir, 'style.json'), 'utf8')); } catch { return {}; }
+}
 /** The fonts in a reference folder (and its fonts/ folder), by family name as written in the file name. */
 export function fontsIn(dir) {
   const out = [];
@@ -116,24 +124,52 @@ export function styleTokens(style = {}, { ref = null, fallback = {} } = {}) {
   const faces = have.filter((f) => Object.values(fonts).includes(f.name));
   const css = [
     ...faces.map((f) => `@font-face{font-family:"${f.name}";src:url("${pathToFileUrl(f.file)}");font-display:block;font-weight:100 900}`),
-    `:root{${Object.entries(colours).map(([k, v]) => `--pp-${k}:${v}`).join(';')};--pp-display:"${fonts.display || fonts.body}",serif;--pp-body:"${fonts.body || fonts.display}",serif;--pp-mono:"${fonts.mono || fonts.body}",monospace;--pp-pace:${paceOf(style)}}`,
+    `:root{${Object.entries(colours).map(([k, v]) => `--pp-${k}:${v}`).join(';')};--pp-display:"${fonts.display || fonts.body}",serif;--pp-body:"${fonts.body || fonts.display}",serif;--pp-mono:"${fonts.mono || fonts.body}",monospace;--pp-pace:${paceOf(style)}${typeVars(style)}}`,
   ].join('\n');
-  return { tokens: { colours, fonts, pace: paceOf(style), text: style?.text || [], graphics: style?.graphics || [], rules: style?.rules || [] }, css, warnings };
+  return { tokens: { colours, fonts, pace: paceOf(style), text: style?.text || [], graphics: style?.graphics || [], rules: style?.rules || [], motion: style?.motion || {}, grain: style?.grain, vignette: style?.vignette, forms: style?.forms || {}, name: style?.name || null }, css, warnings };
+}
+/** A look's type settings as CSS variables, with what the type needs in one place: --pp-dw weight, --pp-dt tracking, --pp-dc case, --pp-dv variation settings, --pp-bw body weight. */
+function typeVars(style) {
+  const t = style?.typeset; if (!t) return '';
+  const v = { dw: t.display_weight, dt: t.display_tracking, dc: t.display_case, dv: t.display_axes, bw: t.body_weight, bt: t.body_tracking, corner: t.corner };
+  return Object.entries(v).filter(([, x]) => x != null).map(([k, x]) => `;--pp-${k}:${x}`).join('');
 }
 const pathToFileUrl = (f) => 'file:///' + path.resolve(f).replace(/\\/g, '/').replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/').replace(/^([A-Za-z])%3A/, '$1:');
 /** A pace multiplier from the profile: 1 normal, under 1 quicker moves, over 1 slower. */
 function paceOf(style) {
-  const words = [...(style?.pace || []).map((p) => `${p.value} ${p.label}`), ...(style?.text || [])].join(' ').toLowerCase();
   if (typeof style?.pace === 'number') return style.pace;
+  const words = [...(style?.pace || []).map((p) => `${p.value} ${p.label}`), ...(style?.text || [])].join(' ').toLowerCase();
   return /\b(fast|snappy|quick|punchy|hype)\b/.test(words) ? 0.8 : /\b(slow|calm|gentle|cinematic|documentary)\b/.test(words) ? 1.25 : 1;
 }
 
 // ── render ──
+// Every frame comes out of the browser as sRGB and goes to Rec. 709. Left to itself ffmpeg converts with the old SD matrix and tags
+// nothing, and every player then shows it as HD: #E8503A came back as #F45C37 (5 Nov 2026, measured). TAG709 says what the frames are;
+// frameFilter() does the conversion.
+const TAG709 = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
 const ENCODE = {
-  mp4: { ext: '.mp4', v: ['-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p'], a: ['-c:a', 'aac', '-b:a', '256k'], alpha: false },
-  prores: { ext: '.mov', v: ['-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', '-vendor', 'apl0'], a: ['-c:a', 'pcm_s16le'], alpha: true },
-  webm: { ext: '.webm', v: ['-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0', '-crf', '22', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', '-auto-alt-ref', '0'], a: ['-c:a', 'libopus', '-b:a', '192k'], alpha: true },
+  // aq-mode 3 keeps bits in dark gradients, where H.264 bands first
+  mp4: { ext: '.mp4', pix: 'yuv420p', v: ['-c:v', 'libx264', '-preset', 'medium', '-crf', '17', '-maxrate', '30M', '-bufsize', '60M', '-pix_fmt', 'yuv420p', '-x264-params', 'aq-mode=3:aq-strength=0.9:colorprim=bt709:transfer=bt709:colormatrix=bt709', ...TAG709], a: ['-c:a', 'aac', '-b:a', '256k'], alpha: false },
+  prores: { ext: '.mov', pix: 'yuva444p10le', v: ['-c:v', 'prores_ks', '-profile:v', '4', '-pix_fmt', 'yuva444p10le', '-vendor', 'apl0', ...TAG709], a: ['-c:a', 'pcm_s16le'], alpha: true },
+  webm: { ext: '.webm', pix: 'yuva420p', v: ['-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0', '-crf', '22', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', '-auto-alt-ref', '0', ...TAG709], a: ['-c:a', 'libopus', '-b:a', '192k'], alpha: true },
 };
+/**
+ * The filters between the browser's frames and the encoder (pure): k sub-frames averaged into one (motion blur, with colours
+ * premultiplied so a soft edge on alpha does not go dark), a supersampled page brought down to size, then sRGB to Rec. 709.
+ */
+export function frameFilter({ format, fps, k = 1, ss = 1, width, height, alpha = false, grain = 0 }) {
+  const f = [];
+  if (k > 1) {
+    if (alpha) f.push('format=gbrap', 'premultiply=inplace=1');
+    f.push(`tmix=frames=${k}`, `select='not(mod(n+1\\,${k}))'`, `setpts=N/(${fps}*TB)`);
+    if (alpha) f.push('unpremultiply=inplace=1');
+  }
+  if (ss > 1) f.push(`scale=${width}:${height}:flags=lanczos+accurate_rnd`);
+  f.push(`scale=out_color_matrix=bt709:out_range=tv:flags=accurate_rnd+full_chroma_int,format=${ENCODE[format].pix}`);
+  // film grain, new on every frame. Only on a full-frame picture: an overlay's grain would sit on someone's footage
+  if (grain > 0 && !alpha) f.push(`noise=c0s=${Math.max(1, Math.round(grain * 70))}:c0f=t+u`);
+  return f.join(',');
+}
 
 async function openBrowser(width, height) {
   const browser = findBrowser();
@@ -160,12 +196,12 @@ const videoSeek = (t) => `await Promise.all([...document.querySelectorAll('video
   const from=+(v.dataset.ppFrom||0),rate=+(v.dataset.ppRate||1),d=v.duration;let at=from+${t}*rate;if(Number.isFinite(d)&&d>0)at=Math.min(Math.max(0,at),d-0.001);
   if(Math.abs(v.currentTime-at)<1e-4&&v.readyState>=2)return r();const done=()=>{v.removeEventListener('seeked',done);r();};v.addEventListener('seeked',done);(window.__ppRealTimeout||setTimeout)(done,3000);v.currentTime=at;})));`;
 /** One page of the scene, loaded and ready: { s (session), seekable, duration, fonts }. */
-async function openPage(c, { entry, width, height, alpha, style, props, log, duration = 0 }) {
+async function openPage(c, { entry, width, height, alpha, style, props, log, duration = 0, ss = 1 }) {
   const { targetId } = await c.send('Target.createTarget', { url: 'about:blank' });
   const { sessionId: s } = await c.send('Target.attachToTarget', { targetId, flatten: true });
   await c.send('Page.enable', {}, s);
   await c.send('Runtime.enable', {}, s);
-  await c.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, s);
+  await c.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: ss, mobile: false }, s);
   if (alpha) await c.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } }, s);
   const inject = `window.__ppRealTimeout=window.setTimeout.bind(window);window.PP_STYLE=${JSON.stringify(style.tokens)};window.PP_PROPS=${JSON.stringify(props || {})};window.PP_SIZE={width:${width},height:${height}};window.PP_DURATION=${+duration || 0};
 document.addEventListener('DOMContentLoaded',()=>{const st=document.createElement('style');st.id='pp-style';st.textContent=${JSON.stringify(style.css)};document.head.prepend(st);});`;
@@ -187,7 +223,7 @@ document.addEventListener('DOMContentLoaded',()=>{const st=document.createElemen
     const generic=/^(serif|sans-serif|monospace|system-ui|cursive|fantasy)$/;const missing=[...used].filter(f=>!generic.test(f)&&document.fonts&&!document.fonts.check('16px "'+f+'"'));
     const bg=[getComputedStyle(document.documentElement).backgroundColor,getComputedStyle(document.body).backgroundColor];
     const loaded=new Set(document.fonts?[...document.fonts].filter(f=>f.status==='loaded').map(f=>f.family.replace(/["']/g,'')):[]);const system=[...used].filter(f=>!generic.test(f)&&!loaded.has(f)&&!missing.includes(f));
-    return {duration:r&&r.duration,seekable:typeof window.seek==='function',failed,missing,system,used:[...used],bg};})()`);
+    return {duration:r&&r.duration,seekable:typeof window.seek==='function',failed,missing,system,used:[...used],bg,sound:window.PP_SOUND||[]};})()`);
   if (info.failed.length) throw err('FONT_FAILED', `These fonts did not load: ${[...new Set(info.failed)].join(', ')}. Check the font files in the scene or reference folder.`);
   if (info.missing.length) log(`harness: no font file for ${info.missing.join(', ')}: the browser would substitute one, so add the file (fonts/ in the reference folder)`);
   if (info.missing.length) throw err('FONT_MISSING', `The scene uses ${info.missing.join(', ')} but no file for it is loaded: add the font file (the reference folder's fonts/), or use the style's --pp-display / --pp-body.`);
@@ -198,7 +234,8 @@ document.addEventListener('DOMContentLoaded',()=>{const st=document.createElemen
 
 /**
  * Render a scene. o: { scene (folder or html), out, width, height, aspect, fps, duration, format, workers, style (a look or
- * tokens), ref (the reference folder), props, audio, allow_slop, from, to, log } → { file, frames, seconds, render_s, … }
+ * tokens), ref (the reference folder), props, audio, allow_slop, from, to, log, final, shutter, samples, ss } → { file, frames, seconds, render_s, … }
+ * final: true is the finished look: motion blur (a 180° shutter, 8 sub-frames each) on a page drawn at 2×, with the look's film grain. shutter (degrees), samples and ss set them apart.
  */
 export async function renderScene(o = {}) {
   const log = o.log || (() => {});
@@ -215,13 +252,14 @@ export async function renderScene(o = {}) {
   // slop out, before a frame is drawn
   const slop = slopCheck(sourceText(sc.entry));
   if (slop.length && !o.allow_slop) throw err('SLOP', `The scene has the look of AI defaults, so it was not rendered:\n- ${slop.join('\n- ')}\nFix them, or pass allow_slop with the creator's reason.`, { slop });
-  const style = styleTokens(o.style || m.style || {}, { ref: o.ref || path.join(sc.dir, 'reference'), fallback: m.fallback_style || {} });
+  const style = styleTokens(styleOf(o, m, sc.dir), { ref: o.ref || path.join(sc.dir, 'reference'), fallback: m.fallback_style || {} });
   for (const w of style.warnings) log(`harness: ${w}`);
   const props = { ...(m.props || {}), ...(o.props || {}) };
   const t0 = Date.now();
+  const shutter = o.shutter != null ? +o.shutter : o.final ? 180 : 0, k = shutter > 0 ? Math.max(2, +o.samples || 8) : 1, ss = Math.max(1, Math.min(3, +o.ss || (o.final ? 2 : 1)));
   const first = await openBrowser(width, height);
   let page;
-  try { page = await openPage(first.c, { entry: sc.entry, width, height, alpha, style, props, log, duration: +o.duration || +m.duration || 0 }); } catch (e) { await first.close(); throw e; }
+  try { page = await openPage(first.c, { entry: sc.entry, width, height, alpha, style, props, log, ss, duration: +o.duration || +m.duration || 0 }); } catch (e) { await first.close(); throw e; }
   const duration = +o.duration || +m.duration || +page.duration;
   if (!(duration > 0)) { await first.close(); throw err('NO_DURATION', 'How long is it? Give duration (seconds) in scene.json, as an option, or return { duration } from window.ready().'); }
   const from = Math.max(0, +o.from || 0), to = Math.min(duration, +o.to || duration);
@@ -240,40 +278,49 @@ export async function renderScene(o = {}) {
   try {
     const segs = await Promise.all(chunks.map(async ([a, b], i) => {
       let br = first, pg = page;
-      if (i > 0) { br = await openBrowser(width, height); browsers.push(br); pg = await openPage(br.c, { entry: sc.entry, width, height, alpha, style, props, log, duration }); }
-      return drawChunk({ c: br.c, pg, a, b, fps, format, out, work, i, alpha, tick });
+      if (i > 0) { br = await openBrowser(width, height); browsers.push(br); pg = await openPage(br.c, { entry: sc.entry, width, height, alpha, style, props, log, ss, duration }); }
+      return drawChunk({ c: br.c, pg, a, b, fps, format, out, work, i, alpha, tick, k, shutter, ss, width, height, grain: o.final ? +style.tokens.grain || 0 : 0 });
     }));
     for (const b of browsers.splice(0)) await b.close();
     if (format !== 'png') await joinSegments(segs, out, work, format);
-    const audio = [...(m.audio || []), ...(o.audio || [])];
-    if (audio.length) await mixAudio({ audio, dir: sc.dir, out, format, from, seconds: N / fps, work });
+    const audio = await soundsFor([...(m.audio || []), ...(page.sound || []), ...(o.audio || [])], { work });
+    if (audio.length) await mixAudio({ audio, dir: sc.dir, out, format, from, seconds: N / fps, work, master: o.final && !alpha ? -14 : null });
     const render_s = Math.round((Date.now() - t0) / 100) / 10;
     log(`harness: done in ${render_s} s -> ${out}`);
-    return { file: out, kind: 'html', frames: N, seconds: N / fps, width, height, fps, format, alpha, workers, render_s, fonts: page.used, warnings: style.warnings, slop_allowed: slop.length ? slop : undefined };
+    return { file: out, kind: 'html', frames: N, seconds: N / fps, width, height, fps, format, alpha, workers, render_s, fonts: page.used, final: !!o.final, hits: [...new Set(audio.filter((x) => x.hit != null && /^(impact|tick|pop)$/.test(x.sfx || '')).map((x) => Math.round(x.hit * 1000) / 1000))], warnings: style.warnings, slop_allowed: slop.length ? slop : undefined };
   } finally {
     for (const b of browsers) await b.close();
     try { fs.rmSync(work, { recursive: true, force: true }); } catch (e) { console.error(`[harness] left ${work}: ${e.message}`); }
   }
 }
 
-async function drawChunk({ c, pg, a, b, fps, format, out, work, i, alpha, tick }) {
+async function drawChunk({ c, pg, a, b, fps, format, out, work, i, alpha, tick, k = 1, shutter = 0, ss = 1, width, height, grain = 0 }) {
   const seg = path.join(work, `seg-${String(i).padStart(3, '0')}${format === 'png' ? '' : ENCODE[format].ext}`);
   let enc = null, encErr = '', done = null;
   if (format !== 'png') {
-    enc = spawn(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(fps), '-i', '-', ...ENCODE[format].v, '-r', String(fps), seg], { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
+    enc = spawn(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(fps * k), '-i', '-', '-vf', frameFilter({ format, fps, k, ss, width, height, alpha, grain }), ...ENCODE[format].v, '-r', String(fps), seg], { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
     enc.stderr.on('data', (d) => { encErr += d; });
     done = new Promise((res, rej) => enc.on('close', (code) => (code === 0 ? res() : rej(err('FFMPEG_FAILED', `ffmpeg could not write the frames: ${encErr.slice(-300)}`)))));
   }
   try {
     // a clock-driven page plays from 0 (this is the only worker); a seekable one goes straight to its frame
     for (let f = a; f < b; f++) {
-      const t = f / fps;
-      if (pg.seekable) await pg.ev(`(async()=>{await window.seek(${t});for(const x of document.getAnimations()){x.pause();x.currentTime=${t * 1000};}${videoSeek(t)}})()`);
-      else await pg.ev(`window.__ppAdvance(${f === a ? 0 : 1000 / fps})`);
-      const { data } = await c.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, optimizeForSpeed: true }, pg.s);
-      const buf = Buffer.from(data, 'base64');
-      if (format === 'png') fs.writeFileSync(path.join(out, `frame_${String(f + 1).padStart(6, '0')}.png`), buf);
-      else if (!enc.stdin.write(buf)) await new Promise((r) => enc.stdin.once('drain', r));
+      // motion blur: k moments across the open shutter, each a real frame of the scene, averaged by the encoder's filter. A png
+      // sequence stays sharp: there is nothing to average them with.
+      const subs = format === 'png' || !pg.seekable ? 1 : k;
+      const grab = async (j) => {
+        const t = Math.max(0, (f + (subs > 1 ? (j / (subs - 1) - 0.5) * (shutter / 360) : 0)) / fps);   // the shutter is centred on the frame
+        if (pg.seekable) await pg.ev(`(async()=>{await window.seek(${t});for(const x of document.getAnimations()){x.pause();x.currentTime=${t * 1000};}${videoSeek(t)}})()`);
+        else await pg.ev(`window.__ppAdvance(${f === a ? 0 : 1000 / fps})`);
+        const { data } = await c.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, optimizeForSpeed: true }, pg.s);
+        return Buffer.from(data, 'base64');
+      };
+      const put = async (buf) => { if (format === 'png') fs.writeFileSync(path.join(out, `frame_${String(f + 1).padStart(6, '0')}.png`), buf); else if (!enc.stdin.write(buf)) await new Promise((r) => enc.stdin.once('drain', r)); };
+      // a frame where nothing moves across the shutter is drawn twice, not k times: most of a graphic is a hold
+      const first = await grab(0), last = subs > 1 ? await grab(subs - 1) : first;
+      if (subs === 1) await put(first);
+      else if (first.equals(last)) for (let j = 0; j < subs; j++) await put(first);
+      else { await put(first); for (let j = 1; j < subs - 1; j++) await put(await grab(j)); await put(last); }
       tick();
     }
   } finally { if (enc) enc.stdin.end(); }
@@ -288,8 +335,26 @@ async function joinSegments(segs, out, work, format) {
   await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', ...(format === 'mp4' ? ['-movflags', '+faststart'] : []), out]);
 }
 
+/**
+ * The scene's sounds, ready to mix: { sfx: 'whoosh', dur, seed, ... } is made here, and hit puts the sound's loudest moment on that
+ * time instead of its first sample (a whoosh peaks at the middle of the move, not where its file starts).
+ */
+async function soundsFor(list, { work }) {
+  const out = [];
+  for (const [i, x] of list.entries()) {
+    let y = { ...x };
+    if (x.sfx) {
+      const made = makeSfx(x.sfx, { ...x, file: path.join(work, `sfx-${i}.wav`) });
+      y = { ...y, src: made.file, peak_s: made.peak_s };
+    }
+    if (x.hit != null) y.at = Math.max(0, +x.hit - (y.peak_s || 0));
+    out.push(y);
+  }
+  return out;
+}
+
 /** The manifest's sounds, each at its moment, mixed and laid under the picture (the picture is not encoded again). */
-async function mixAudio({ audio, dir, out, format, from, seconds, work }) {
+async function mixAudio({ audio, dir, out, format, from, seconds, work, master = null }) {
   const ins = [], parts = [];
   audio.forEach((x, i) => {
     const src = path.resolve(dir, x.src);
@@ -303,19 +368,194 @@ async function mixAudio({ audio, dir, out, format, from, seconds, work }) {
     f.push(`adelay=${ms}|${ms}`);
     parts.push(`[${i}:a]${f.join(',')}[a${i}]`);
   });
-  const graph = `${parts.join(';')};${audio.map((_, i) => `[a${i}]`).join('')}amix=inputs=${audio.length}:normalize=0:dropout_transition=0,atrim=0:${seconds},apad=whole_dur=${seconds}[mix]`;
+  const graph = `${parts.join(';')};${audio.map((_, i) => `[a${i}]`).join('')}amix=inputs=${audio.length}:normalize=0:dropout_transition=0,alimiter=limit=0.89:level=0,atrim=0:${seconds},apad=whole_dur=${seconds}[mix]`;
   if (format === 'png') { await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', ...ins, '-filter_complex', graph, '-map', '[mix]', '-c:a', 'pcm_s16le', path.join(out, 'audio.wav')]); return; }
+  // a finished full-frame piece is brought to the delivery level (a linear gain, with the limiter catching what that pushes over)
+  let gain = '';
+  if (master != null) {
+    const wav = path.join(work, 'mix.wav');
+    await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', ...ins, '-filter_complex', graph, '-map', '[mix]', '-c:a', 'pcm_s24le', wav]);
+    const { err: log } = await run(FF, ['-hide_banner', '-nostats', '-i', wav, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
+    const { lufs } = parseEbur(log);
+    if (Number.isFinite(lufs) && lufs > -70) gain = `volume=${Math.max(-12, Math.min(24, master - lufs)).toFixed(2)}dB,alimiter=limit=0.89:level=0,`;
+  }
   const tmp = path.join(work, `withsound${ENCODE[format].ext}`);
-  await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', out, ...ins, '-filter_complex', graph.replace(/\[(\d+):a\]/g, (_, n) => `[${+n + 1}:a]`), '-map', '0:v', '-map', '[mix]', '-c:v', 'copy', ...ENCODE[format].a, '-shortest', ...(format === 'mp4' ? ['-movflags', '+faststart'] : []), tmp]);
+  await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', out, ...ins, '-filter_complex', graph.replace(/\[(\d+):a\]/g, (_, n) => `[${+n + 1}:a]`).replace('[mix]', `,${gain}anull[mix]`), '-map', '0:v', '-map', '[mix]', '-c:v', 'copy', ...ENCODE[format].a, ...(gain ? ['-metadata', `comment=${MASTERED_TAG}`] : []), '-shortest', ...(format === 'mp4' ? ['-movflags', '+faststart'] : []), tmp]);
   fs.copyFileSync(tmp, out);
 }
+
+/**
+ * Measure a scene instead of trusting it: every frame's layout, every element's motion, the words against their reading time, the
+ * contrast on bright and dark footage for an overlay, and a contact sheet of the moments that matter (harness-check.js).
+ * → { ok, issues: [{ code, what, at, frames }], timeline, hold, sheet, stills }
+ */
+export async function checkScene(o = {}) {
+  const sc = inspect(o.scene), m = sc.manifest || {};
+  // a HyperFrames project is measured on a copy that can be stepped through; the look stays judged on what the project says, and the sheets land in the project
+  if (sc.kind === 'hyperframes') {
+    const copy = hfCheckCopy(sc.dir, { alpha: o.alpha });
+    const look = ['look.json', 'style.json'].map((f) => path.join(sc.dir, f)).find((f) => fs.existsSync(f));
+    if (look) fs.copyFileSync(look, path.join(copy.dir, 'style.json'));
+    try { return await checkScene({ ...o, scene: copy.dir, out: o.out || path.join(sc.dir, 'out', 'check'), remember: false, sound_later: true }); } finally { copy.cleanup(); }
+  }
+  if (sc.kind !== 'html') throw err('NO_SCENE', 'check measures HTML scenes. For Remotion, render stills and look at them.');
+  const [aw, ah] = ASPECTS[o.aspect] || [];
+  const width = even(+o.width || aw || +m.width || 1920), height = even(+o.height || ah || +m.height || 1080), fps = +o.fps || +m.fps || 30;
+  const style = styleTokens(styleOf(o, m, sc.dir), { ref: o.ref || path.join(sc.dir, 'reference'), fallback: m.fallback_style || {} });
+  const props = { ...(m.props || {}), ...(o.props || {}) }, alpha = !!(o.alpha ?? m.alpha), given = styleOf(o, m, sc.dir);
+  const dir = path.resolve(o.out || path.join(sc.dir, 'out', 'check')); fs.mkdirSync(dir, { recursive: true });
+  const br = await openBrowser(width, height);
+  try {
+    const pg = await openPage(br.c, { entry: sc.entry, width, height, alpha, style, props, log: o.log || (() => {}), duration: +o.duration || +m.duration || 0 });
+    if (!pg.seekable) throw err('NO_SCENE', 'check needs a scene with seek() (PP.scene gives one).');
+    const duration = +o.duration || +m.duration || +pg.duration;
+    if (!(duration > 0)) throw err('NO_DURATION', 'How long is it? Give duration in scene.json or return { duration } from window.ready().');
+    const go = (t) => pg.ev(`(async()=>{await window.seek(${t});for(const x of document.getAnimations()){x.pause();x.currentTime=${t * 1000};}${videoSeek(t)}})()`);
+    const N = Math.round(duration * fps), frames = [];
+    for (let f = 0; f < N; f++) { const t = f / fps; await go(t); frames.push({ t, items: await pg.ev(PROBE) }); }
+    settleThin(frames);
+    const tracks = motionTracks(frames, fps);
+    const hasText = frames.some((f) => f.items.some((i) => i.kind === 'text'));
+    // the hold: the longest stretch with the most words on screen and no text moving
+    const movingAt = (n) => tracks.some((x) => x.kind === 'text' && x.active.has(n));
+    let best = null, a = -1, most = 0;
+    for (let n = 0; n <= N; n++) {
+      const calm = n < N && !movingAt(n) && frames[n].items.some((i) => i.kind === 'text' && i.op > 0.5);
+      if (calm && a < 0) a = n;
+      if (!calm && a >= 0) { const c = wordsIn(frames[Math.floor((a + n) / 2)].items); if (!best || c > most || (c === most && n - a > best[1] - best[0])) { best = [a, n]; most = c; } a = -1; }
+    }
+    const hold = best ? { from: best[0] / fps, to: best[1] / fps, words: most } : null;
+    const issues = [];
+    frames.forEach((f, n) => {
+      for (const x of analyseLayout(f.items, width, height)) issues.push({ ...x, at: Math.round(f.t * 100) / 100 });
+      if (best && n === Math.floor((best[0] + best[1]) / 2)) for (const x of [...analyseCentre(f.items, width, height), ...analyseInk(f.items, width, height), ...analysePointers(f.items, width, height)]) issues.push({ ...x, at: Math.round(f.t * 100) / 100 });
+    });
+    if (hasText) issues.push(...analyseMotion(tracks, { duration, alpha, wordsShown: hold?.words || 0, holdFrom: hold?.from ?? null, holdTo: hold?.to ?? null }));
+    // the stills and the sheet
+    const moments = keyMoments(tracks, duration, +o.frames || 12);
+    const stills = [];
+    for (const t of moments) {
+      await go(t);
+      const { data } = await br.c.send('Page.captureScreenshot', { format: 'png', fromSurface: true }, pg.s);
+      const f = path.join(dir, `t-${t.toFixed(2)}.png`); fs.writeFileSync(f, Buffer.from(data, 'base64'));
+      stills.push({ t, file: f, url: fileUrl(f) });
+    }
+    // contrast: the words against what is really behind them at the hold; an overlay on the brightest and darkest footage it may meet
+    if (best) {
+      const n = Math.floor((best[0] + best[1]) / 2); await go(n / fps);
+      for (const plate of alpha ? [{ name: 'bright footage', c: { r: 235, g: 235, b: 235, a: 1 } }, { name: 'dark footage', c: { r: 24, g: 24, b: 24, a: 1 } }] : [{ name: 'the frame', c: null }]) {
+        if (plate.c) await br.c.send('Emulation.setDefaultBackgroundColorOverride', { color: plate.c }, pg.s);
+        const { data } = await br.c.send('Page.captureScreenshot', { format: 'png', fromSurface: true }, pg.s);
+        const png = path.join(dir, 'contrast.png'), raw = path.join(dir, 'contrast.rgb'); fs.writeFileSync(png, Buffer.from(data, 'base64'));
+        await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', png, '-f', 'rawvideo', '-pix_fmt', 'rgb24', raw]);
+        const px = fs.readFileSync(raw), at = (x, y) => { const i = 3 * (Math.min(height - 1, Math.max(0, Math.round(y))) * width + Math.min(width - 1, Math.max(0, Math.round(x)))); return luminance(px[i], px[i + 1], px[i + 2]); };
+        // big numbers, read from the ink: a hole beside a comma shows in the pixels, and in no box
+        if (!plate.c) for (const b of textBlocks(frames[n].items).filter((x) => x.op > 0.6 && x.size >= height * 0.08 && /\d[,.]\d/.test(x.text.replace(/\s/g, '')))) {
+          const ys = Array.from({ length: 24 }, (_, i) => b.y + b.h * (i / 23)), back = at(b.x - 6, b.y + b.h / 2), cols = []; // every height: a comma's ink sits low
+          for (let x = Math.floor(b.x); x < b.x + b.w; x++) cols.push(ys.some((y) => Math.abs(at(x, y) - back) > 0.08));
+          issues.push(...analyseNumerals(cols, b.size, b.text).map((i) => ({ ...i, at: Math.round((n / fps) * 100) / 100 })));
+        }
+        for (const b of textBlocks(frames[n].items.filter((i) => !i.spent)).filter((x) => x.op > 0.6)) {
+          const it = frames[n].items.find((i) => i.id === b.ids[0]), rgb = it.rgb || parseRgb(it.colour); if (!rgb) continue;
+          const ring = []; for (let i = 0; i < 24; i++) { const u = i / 24; ring.push(at(b.x + b.w * u, b.y - 5), at(b.x + b.w * u, b.y + b.h + 5), at(b.x - 6, b.y + b.h * u), at(b.x + b.w + 6, b.y + b.h * u)); }
+          ring.sort((p, q) => p - q);
+          // the words as they really show, faded by their opacity into what is behind them. Hero 4.5:1; everything smaller 7:1, a tier above the web because video is seen in passing
+          const bg = ring[Math.floor(ring.length / 2)], ink = (luminance(...rgb) ** (1 / 2.2) * it.op + bg ** (1 / 2.2) * (1 - it.op)) ** 2.2, ratio = contrast(ink, bg), need = b.size >= height * 0.066 ? 4.5 : 7;
+          if (ratio < need) issues.push({ code: 'LOW_CONTRAST', at: Math.round((n / fps) * 100) / 100, what: `"${b.text.slice(0, 28)}" is ${ratio.toFixed(1)}:1 against ${plate.name} (needs ${need}:1)` });
+        }
+      }
+      if (alpha) await br.c.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } }, pg.s);
+      for (const f of ['contrast.png', 'contrast.rgb']) fs.rmSync(path.join(dir, f), { force: true });
+    }
+    // the frame's use of its space, at the hold (or, with no text to hold, the frame with the most in it)
+    if (!alpha) {
+      const bandsOf = async (file) => { const raw = `${file}.rgb`; await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-vf', 'scale=128:72:flags=area', '-f', 'rawvideo', '-pix_fmt', 'rgb24', raw]); const g = emptyBands(contentGrid(fs.readFileSync(raw), 32, 18)); fs.rmSync(raw, { force: true }); return g; };
+      let bands = null;
+      if (best) { await go(Math.floor((best[0] + best[1]) / 2) / fps); const f = path.join(dir, 'hold.png'), { data } = await br.c.send('Page.captureScreenshot', { format: 'png', fromSurface: true }, pg.s); fs.writeFileSync(f, Buffer.from(data, 'base64')); bands = await bandsOf(f); fs.rmSync(f, { force: true }); }
+      else for (const x of stills) { const b = await bandsOf(x.file); if (!bands || b.used > bands.used) bands = b; }
+      if (best) issues.push(...analyseHero(frames[Math.floor((best[0] + best[1]) / 2)].items, width, height).map((x) => ({ ...x, at: Math.round((best[0] + best[1]) / 2 / fps * 100) / 100 })));
+      if (bands) issues.push(...analyseDeadZone(bands).map((x) => ({ ...x, at: best ? Math.round((best[0] + best[1]) / 2 / fps * 100) / 100 : 0 })));
+    }
+    // a line through words, at every moment that matters: the longest hold can come before the title has even landed
+    for (const t of moments) { const n = Math.min(N - 1, Math.round(t * fps)); await go(n / fps); issues.push(...analyseLineThrough(await pg.ev(PATHS), frames[n].items).map((x) => ({ ...x, at: t }))); }
+    issues.push(...analyseLook(given, style.tokens, recentLooks(sc.dir)));
+    if (!alpha) {
+      // the picture every half a second: enough to see that something changes, and the first frame. Plain captures: a scaled clip hung the map scene for good
+      const dirS = path.join(dir, 'samples'), step = 0.5; fs.mkdirSync(dirS, { recursive: true });
+      const count = Math.max(2, Math.floor(duration / step));
+      for (let i = 0; i < count; i++) {
+        await go(i * step);
+        const { data } = await br.c.send('Page.captureScreenshot', { format: 'jpeg', quality: 80, fromSurface: true }, pg.s);
+        fs.writeFileSync(path.join(dirS, `s-${String(i).padStart(4, '0')}.jpg`), Buffer.from(data, 'base64'));
+      }
+      const gray = (await run(FF, ['-hide_banner', '-loglevel', 'error', '-framerate', '2', '-i', path.join(dirS, 's-%04d.jpg'), '-vf', 'scale=64:36:flags=area', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], { raw: true })).out;
+      const need = hold ? Math.max(LIMITS.read_min, LIMITS.read_pad + hold.words / LIMITS.read_wps) : 0;
+      issues.push(...analyseStale(changesIn(gray, 64, 36), step, { need }));
+      const first = path.join(dirS, 'first.png');
+      await go(0); const { data: fd } = await br.c.send('Page.captureScreenshot', { format: 'png', fromSurface: true }, pg.s); fs.writeFileSync(first, Buffer.from(fd, 'base64'));
+      const raw = `${first}.rgb`; await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', first, '-vf', 'scale=128:72:flags=area', '-f', 'rawvideo', '-pix_fmt', 'rgb24', raw]);
+      issues.push(...analyseFirstFrame(emptyBands(contentGrid(fs.readFileSync(raw), 32, 18))));
+      if (!o.sound_later) issues.push(...analyseSilence({ sounds: (pg.sound?.length || 0) + (m.audio?.length || 0) + (o.audio?.length || 0) }));
+      fs.rmSync(dirS, { recursive: true, force: true });
+    }
+    // the story with the words covered: if the frames say nothing without them, the picture is not doing any work
+    const covered = [];
+    await pg.ev(`(()=>{const s=document.createElement('style');s.id='pp-no-words';s.textContent='*{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important}text,tspan{fill:transparent!important;stroke:transparent!important}';document.head.appendChild(s);})()`);
+    for (const t of moments.filter((_, i) => i % 2 === 0).slice(0, 6)) {
+      await go(t);
+      const { data } = await br.c.send('Page.captureScreenshot', { format: 'png', fromSurface: true }, pg.s);
+      const f = path.join(dir, `no-words-${t.toFixed(2)}.png`); fs.writeFileSync(f, Buffer.from(data, 'base64'));
+      covered.push({ t, file: f, url: fileUrl(f) });
+    }
+    await pg.ev(`document.getElementById('pp-no-words')?.remove()`);
+    if (o.remember) rememberLook(sc.dir, style.tokens, given);
+    const list = summarise(issues);
+    const { targetId } = await br.c.send('Target.createTarget', { url: 'about:blank' });
+    const { sessionId: s2 } = await br.c.send('Target.attachToTarget', { targetId, flatten: true });
+    await br.c.send('Page.enable', {}, s2);
+    await br.c.send('Emulation.setDeviceMetricsOverride', { width: 2448, height: 1600, deviceScaleFactor: 1, mobile: false }, s2);
+    const shootSheet = async (name, tiles, title) => {
+      const page = path.join(dir, `${name}.html`);
+      fs.writeFileSync(page, sheetHtml(tiles, { W: width, H: height, plate: alpha, over: alpha && o.over ? fileUrl(o.over) : null, title }));
+      await br.c.send('Page.navigate', { url: fileUrl(page) }, s2);
+      await new Promise((r) => setTimeout(r, 900));
+      const shot = await br.c.send('Page.captureScreenshot', { format: 'jpeg', quality: 88, fromSurface: true, captureBeyondViewport: true }, s2);
+      const file = path.join(dir, `${name}.jpg`); fs.writeFileSync(file, Buffer.from(shot.data, 'base64')); return file;
+    };
+    const sheet = await shootSheet('sheet', stills, `${path.basename(sc.dir)}: ${list.length ? `${list.length} to look at` : 'no measured problems'} (dashed line: title-safe)`);
+    const no_words = covered.length ? await shootSheet('no-words', covered, `${path.basename(sc.dir)} with the words covered: what do the frames say on their own?`) : null;
+    const timeline = tracks.filter((x) => x.kind === 'text' && x.inDur).map((x) => ({ text: x.text, in: +x.in.toFixed(2), settled: +(x.in + x.inDur).toFixed(2), out: x.out != null ? +x.out.toFixed(2) : null, in_s: +x.inDur.toFixed(2), out_s: +x.outDur.toFixed(2) }));
+    for (const x of tracks) delete x.active;
+    return { ok: !list.length, measured: hasText ? 'layout and motion from the page' : 'no text in the page (canvas or WebGL): look at the sheet', issues: list, hold, timeline, sheet, no_words, stills: stills.map((x) => x.file), limits: LIMITS };
+  } finally { await br.close(); }
+}
+
+/**
+ * The frames either side of every cut in a video, each as a strip: cuts are where a graphic pops, flashes or lands on nothing, and a
+ * contact sheet misses them. → { cuts: [{ t, file }] }
+ */
+export async function cutStrips(file, { out, fps = 30, threshold = 0.28, max = 10 } = {}) {
+  const src = path.resolve(file), dir = path.resolve(out || `${src.replace(/\.[^.]+$/, '')}-cuts`); fs.mkdirSync(dir, { recursive: true });
+  const r = await run(FF, ['-hide_banner', '-nostats', '-i', src, '-vf', `scale=320:-2,select='gt(scene,${threshold})',metadata=print:file=-`, '-an', '-f', 'null', '-'], { raw: true });
+  const times = [...String(r.out).matchAll(/pts_time:([\d.]+)/g)].map((m) => +m[1]).slice(0, max), cuts = [];
+  for (const [i, t] of times.entries()) {
+    const f = path.join(dir, `cut-${String(i + 1).padStart(2, '0')}-${t.toFixed(2)}.jpg`);
+    await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(Math.max(0, t - 3 / fps)), '-i', src, '-frames:v', '6', '-vf', 'scale=400:-2,tile=6x1:padding=4', '-update', '1', f]);
+    cuts.push({ t: Math.round(t * 100) / 100, file: f });
+  }
+  return { cuts };
+}
+
+/** Make a sound effect: { file, seconds, peak_s, kind }. */
+export const sfx = (kind, o = {}) => makeSfx(kind, o);
+export { soundCheck, levelInto, UNDER_VOICE, SFX_KINDS };
 
 /** One frame as a PNG (to look at before rendering it all): { file }. */
 export async function still(o = {}) {
   const sc = inspect(o.scene), m = sc.manifest || {};
   const [aw, ah] = ASPECTS[o.aspect] || [];
   const width = even(+o.width || aw || +m.width || 1920), height = even(+o.height || ah || +m.height || 1080);
-  const style = styleTokens(o.style || m.style || {}, { ref: o.ref || path.join(sc.dir, 'reference'), fallback: m.fallback_style || {} });
+  const style = styleTokens(styleOf(o, m, sc.dir), { ref: o.ref || path.join(sc.dir, 'reference'), fallback: m.fallback_style || {} });
   const br = await openBrowser(width, height);
   try {
     const pg = await openPage(br.c, { entry: sc.entry, width, height, alpha: !!o.alpha, style, props: { ...(m.props || {}), ...(o.props || {}) }, log: o.log || (() => {}) });
@@ -347,6 +587,7 @@ async function renderRemotion(sc, o) {
   if (format === 'prores') args.push('--codec=prores', '--prores-profile=4444', '--image-format=png', '--pixel-format=yuva444p10le');
   else if (format === 'webm') args.push('--codec=vp9', '--image-format=png', '--pixel-format=yuva420p');
   else if (format === 'png') args.push('--sequence', '--image-format=png');
+  else args.push('--image-format=png', '--color-space=bt709');
   if (o.workers) args.push(`--concurrency=${o.workers}`);
   if (o.width) args.push(`--width=${o.width}`);
   if (o.height) args.push(`--height=${o.height}`);
@@ -377,6 +618,15 @@ export async function compose(spec, { base = process.cwd(), log = () => {} } = {
   const fit = `scale=${W}:${H}:force_original_aspect_ratio=increase:flags=lanczos,crop=${W}:${H},setsar=1,fps=${fps},format=yuv420p`;
   // the clips, each trimmed and fitted, joined by cuts or crossfades
   let total = 0; const lens = [];
+  // a piece mastered on its own (render --final) would jump out of a voiced video: it comes down to the voice, unless level: false
+  const levelled = [];
+  const mastered = await Promise.all(clips.map((c) => isMastered(P(c.src))));
+  const voiceClip = clips.find((c, i) => !mastered[i]);
+  for (const [i, c] of clips.entries()) {
+    if (!mastered[i] || !voiceClip || c.level === false) { c.gain = 0; continue; }
+    const l = await levelGain(P(c.src), P(voiceClip.src), { around: { from: voiceClip.from || 0, to: voiceClip.to }, under: UNDER_VOICE.gap });
+    c.gain = l.gain_db; levelled.push({ clip: c.src, ...l });
+  }
   for (const [i, c] of clips.entries()) {
     const info = await probe(P(c.src));
     const a = +c.from || 0, b = c.to != null ? +c.to : info.duration, sp = Math.max(0.25, Math.min(4, +c.speed || 1));
@@ -386,7 +636,7 @@ export async function compose(spec, { base = process.cwd(), log = () => {} } = {
     f.push(`[${i}:v]setpts=(PTS-STARTPTS)/${sp},${fit},settb=AVTB,setpts=PTS-STARTPTS[v${i}]`);
     const hasA = info.hasAudio && spec.keep_audio !== false;
     const tempo = sp === 1 ? '' : `,${atempoChain(sp)}`;
-    f.push(hasA ? `[${i}:a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS${tempo}[a${i}]` : `anullsrc=r=48000:cl=stereo,atrim=0:${(b - a) / sp}[a${i}]`);
+    f.push(hasA ? `[${i}:a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS${c.gain ? `,volume=${c.gain}dB` : ''}${tempo}[a${i}]` : `anullsrc=r=48000:cl=stereo,atrim=0:${(b - a) / sp}[a${i}]`);
     lens.push((b - a) / sp);
   }
   let vl = 'v0', al = 'a0'; total = lens[0];
@@ -430,7 +680,7 @@ export async function compose(spec, { base = process.cwd(), log = () => {} } = {
     ins.push('-ss', String(+x.from || 0), ...(x.to != null ? ['-t', String(+x.to - (+x.from || 0))] : []), '-i', P(x.src));
     const ms = Math.round((+x.at || 0) * 1000);
     f.push(`[${n}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${+x.gain_db || 0}dB${x.fade_in ? `,afade=t=in:d=${x.fade_in}` : ''},adelay=${ms}|${ms}[m${k}]`);
-    if (x.duck) { f.push(`[${al}]asplit[sc${k}][dry${k}]`, `[m${k}][sc${k}]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[dk${k}]`, `[dry${k}][dk${k}]amix=inputs=2:normalize=0:duration=first[am${k}]`); }
+    if (x.duck) { f.push(`[${al}]asplit[sc${k}][dry${k}]`, `[m${k}][sc${k}]sidechaincompress=threshold=0.03:ratio=4:attack=20:release=400[dk${k}]`, `[dry${k}][dk${k}]amix=inputs=2:normalize=0:duration=first[am${k}]`); }
     else f.push(`[${al}][m${k}]amix=inputs=2:normalize=0:duration=first[am${k}]`);
     al = `am${k}`; n++;
   }
@@ -438,6 +688,16 @@ export async function compose(spec, { base = process.cwd(), log = () => {} } = {
   fs.mkdirSync(path.dirname(out), { recursive: true });
   const t0 = Date.now();
   await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', ...ins, '-filter_complex', [...f, `[${vl}]tpad=stop_mode=clone:stop_duration=0.5[vout]`].join(';'), '-map', '[vout]', '-map', `[${al}]`, '-frames:v', String(Math.round(total * fps)), '-t', String(total), ...ENCODE.mp4.v, '-r', String(fps), ...ENCODE.mp4.a, '-movflags', '+faststart', out]);
+  // master: the whole piece to this level with one gain and a limiter, as render --final does, and marked so a voiced video can bring it back down
+  if (spec.master != null) {
+    const { err: m } = await run(FF, ['-hide_banner', '-nostats', '-i', out, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
+    const { lufs } = parseEbur(m);
+    if (Number.isFinite(lufs) && lufs > -70) {
+      const tmp = out.replace(/(\.[^.]+)$/, '.mastered$1');
+      await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', out, '-map', '0', '-c:v', 'copy', '-af', `volume=${Math.max(-12, Math.min(24, +spec.master - lufs)).toFixed(2)}dB,alimiter=limit=0.89:level=0`, ...ENCODE.mp4.a, '-metadata', `comment=${MASTERED_TAG}`, '-movflags', '+faststart', tmp]);
+      fs.renameSync(tmp, out);
+    }
+  }
   log(`harness: composed ${total.toFixed(2)} s in ${Math.round((Date.now() - t0) / 1000)} s -> ${out}`);
-  return { file: out, seconds: total, width: W, height: H, fps };
+  return { file: out, seconds: total, width: W, height: H, fps, ...(levelled.length ? { levelled } : {}) };
 }

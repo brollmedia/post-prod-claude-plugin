@@ -1,18 +1,18 @@
 {
-  "what": "Callout on footage: a hand-drawn ring around the subject, an arrow in from empty space and a label, then a highlight box on a second detail. Ring and box follow the subject through keyed positions. Transparent, for over footage.",
-  "width": 1920, "height": 1080, "fps": 30, "duration": 6, "alpha": true,
+  "what": "Callout on footage: a hand-drawn ring around the subject, an arrow in from empty space and a label on a solid plate, then a highlight box on a second detail with its own plate. Ring and box follow the subject through keyed positions. frame.focus_x says which slice of wide footage an upright crop keeps. Transparent, for over footage.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 9, "alpha": true,
   "props": {
-    "duration": 6,
-    "frame": { "w": 1920, "h": 1080 },
+    "duration": 9,
+    "frame": { "w": 1920, "h": 1080, "focus_x": 0.72 },
     "ring": {
-      "keys": [ { "t": 0, "x": 1450, "y": 826, "r": 372 }, { "t": 2.5, "x": 1432, "y": 825, "r": 372 }, { "t": 6, "x": 1422, "y": 822, "r": 372 } ],
-      "squash": 0.25,
+      "keys": [ { "t": 0, "x": 1400, "y": 660, "r": 230 }, { "t": 4, "x": 1392, "y": 658, "r": 230 }, { "t": 9, "x": 1386, "y": 656, "r": 230 } ],
+      "squash": 0.46,
       "tilt": -3
     },
     "label": { "x": 190, "y": 590, "lead": "Crema:", "text": "the oils, not the foam" },
     "box": {
-      "keys": [ { "t": 3, "x": 1176, "y": 92, "w": 520, "h": 150 }, { "t": 6, "x": 1166, "y": 90, "w": 520, "h": 150 } ],
-      "tag": "The shot",
+      "keys": [ { "t": 4, "x": 1236, "y": 120, "w": 440, "h": 150 }, { "t": 9, "x": 1226, "y": 118, "w": 440, "h": 150 } ],
+      "tag": "",
       "text": "18 g in, 36 g out, 28 s"
     },
     "guide": ""

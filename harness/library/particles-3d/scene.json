@@ -1,11 +1,13 @@
 {
-  "what": "Several hundred low-poly coffee beans (three.js) tumble down and gather into a number, with a small caption. Opaque, 7 s, deterministic from t.",
-  "width": 1920, "height": 1080, "fps": 30, "duration": 7, "alpha": false,
+  "what": "Several hundred low-poly pieces (three.js) tumble down and gather into a number, with a caption under it. shape: bean, sphere or box. Opaque, 9.5 s, deterministic from t.",
+  "width": 1920, "height": 1080, "fps": 30, "duration": 9.5, "alpha": false,
   "props": {
     "number": "140",
+    "prefix": "≈",
+    "shape": "bean",
     "caption": "beans in a double shot",
     "note": "18 g dose ÷ about 0.13 g a bean",
     "seed": 7,
-    "duration": 7
+    "duration": 9.5
   }
 }

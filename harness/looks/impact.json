@@ -1,0 +1,45 @@
+{
+  "name": "impact",
+  "for": "big-stakes entertainment, challenges, retention-led edits, gaming",
+  "colours": {
+    "ink": "#FFFFFF",
+    "paper": "#0B0B0D",
+    "accent": "#FFD400",
+    "accent2": "#FF3B30",
+    "muted": "#A7A7AD"
+  },
+  "fonts": {
+    "display": "Anton",
+    "body": "Archivo",
+    "mono": "Archivo"
+  },
+  "typeset": {
+    "display_weight": 400,
+    "display_tracking": "0.015em",
+    "display_case": "uppercase",
+    "body_weight": 700,
+    "body_tracking": "0.01em"
+  },
+  "pace": 0.75,
+  "motion": {
+    "character": "fast in, hard stop, a held beat at the reveal; punch scale on the number",
+    "enter": "snap",
+    "give": 0.3,
+    "stagger_frames": 2,
+    "main_frames": 10
+  },
+  "sound": "short hits, a whoosh on the big moves, a stop-down before the reveal",
+  "grain": 0.02,
+  "vignette": 0.18,
+  "graphics": [
+    "big numbers, huge contrast, one accent",
+    "a dark edge on text over footage"
+  ],
+  "rules": [
+    "the stake is on screen, in digits"
+  ],
+  "forms": {
+    "lower-third": "stack",
+    "quote-card": "wall"
+  }
+}

@@ -3,7 +3,7 @@ name: watch
 description: Watch post-prod.io in the background and make the person's review notes into real changes to the video the moment they post them in the review room (Review with voice, typed notes sent to Claude, or a message in the room's Edit with Claude chat). Edits the video's source project when it is made from one (code, an editing project), else the footage itself with ffmpeg, and uploads the result as the next version. Runs as a quiet loop until stopped. Use when the user runs /post-prod:watch, or asks Claude to watch post-prod, keep an eye on their review, or make their notes as they come in.
 when_to_use: Phrases like watch post-prod, watch my review, make my notes as I post them, keep watching, Edit with Claude. Needs the post-prod MCP server connected (a paid post-prod.io plan).
 model: claude-opus-5-5
-allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status mcp__plugin_post-prod_post-prod__reply_to_bundle Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
+allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status mcp__plugin_post-prod_post-prod__reply_to_bundle Agent Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
 ---
 
 # Edit with Claude
@@ -34,6 +34,17 @@ call `reply_to_bundle` with one plain sentence first, so "Making these now" is n
 
 Use the tool names as they appear in the tool list (they carry the `post-prod` prefix).
 
+## Read before the work
+
+A long watch loop forgets what it read at the start. Before each job, read what that job needs, even if you read it earlier:
+
+- **Any graphic, title, text on the picture, animation or sound:** `${CLAUDE_PLUGIN_ROOT}/craft/CORE.md`, then
+  `${CLAUDE_PLUGIN_ROOT}/skills/watch/references/hyperframes.md` (it says who owns the note), then `references/effects.md`. That is how you make work like a senior motion designer before
+  you have seen any reference, and how you time it to the words.
+- **Anything that cuts, joins or chooses takes:** `${CLAUDE_PLUGIN_ROOT}/skills/watch/references/cutting.md`.
+- **The room saying "Connect HyperFrames":** `references/hyperframes.md` too.
+- **A launch, product or explainer video:** `${CLAUDE_PLUGIN_ROOT}/skills/launch-video-craft/SKILL.md` too.
+
 ## Before the loop (once)
 
 1. **Opus 5.5.** Good edits need Opus 5.5 (`claude-opus-5-5`). If you are any other model, say once, in one line: "For good
@@ -50,8 +61,8 @@ Use the tool names as they appear in the tool list (they carry the `post-prod` p
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.5.2"` (this plugin's version: post-prod.io says when it is out of date)
-and your model name in `model` (and `for_team` in team mode). Do not pass
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.6.0"` (this plugin's version: post-prod.io says when it is out of date)
+and your model name in `model` (and `for_team` in team mode). On the first call add `tools` from `animate.mjs hf status`. Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
 - **`{"idle":true,"next":"wait"}`**: nothing happened. Call `wait_for_feedback` again at once. Write nothing at all: no
@@ -101,27 +112,6 @@ your changes stay in their project, as an editor's would.
 
 ### Footage (no project)
 
-Every job brief hands you the exact uploaded file as a ready command (it saves to `post-prod-folder/video/`): run it first. Otherwise `get_download` with `what: "video"` gives the exact uploaded file. If it says only the playback copy can be had, say so in
-your reply. Work in a folder of its own, `post-prod-folder/work/V<the new number>/`; never touch the original. Use ffmpeg for the change (grade, black and white
-from a time, crops and keyframed zooms, speed, captions burned in, audio fixes), matching the source's resolution,
-frame rate and codec family, high quality (for H.264: `-crf 16 -preset slow`, audio copied when you did not touch it).
-Keep that folder (3 Nov 2026: deleting it lost the graphics, so the next round rebuilt them and they drifted). After the upload,
-zip it without the rendered videos (`npx post-prod-mcp zip <folder>`) and `attach_working_files` to the new version, so the next
-round reads the last version's graphic sources (get_version_context lists them) and changes them instead of starting again. Say in
-your summary which folder the files are in.
-
-### Cutting footage: talking heads, vlogs, YouTube videos
-
-Any change that cuts, reorders, chooses takes, joins clips or fits a new section in goes through the **cut engine**, never
-ffmpeg commands you write yourself. You decide WHAT plays; the engine decides where each cut lands (in the gap between
-words, never inside one), makes the seams (the sound blended so nothing clicks, J and L cuts, dissolves, dips), renders and
-checks the result. Measured on our own footage: cuts placed by judgement broke sentences at about one join in three until
-they moved onto the word clock, and no model hears seams reliably, you included (you get no sound). So never place a cut by
-ear or by eye alone, and never hand-write a filter graph of many cuts.
-
-If the footage tools (`get_words`, `find_takes`, `get_section`, `upload_section`) are missing or answer `FIRST_CUT_NOT_OPEN`,
-they are not open on this workspace yet: make simple cuts with ffmpeg as above, at pauses, and say so in your reply.
-
 Finding ffmpeg (seconds, never minutes): run `ffmpeg -version`. If it is not found, look in these places only, in this order:
 - Windows after a winget install: `$LOCALAPPDATA/Microsoft/WinGet/Links/ffmpeg.exe` (in PowerShell `$env:LOCALAPPDATA/Microsoft/WinGet/Links/ffmpeg.exe`). A shell opened before the install has no PATH
   entry for it yet.
@@ -131,102 +121,18 @@ Never search the disk recursively for it (Get-ChildItem -Recurse, find /): that 
 use its full path (or put its folder on PATH for the session) for the rest of the loop. If it is in none of those places, `ask_person`
 to install it.
 
-The engine: `node "${CLAUDE_PLUGIN_ROOT}/bin/cut-footage.mjs" <command> …` (needs ffmpeg and ffprobe on the PATH; if they are
-missing, `ask_person` to install ffmpeg and stop the task). Each command prints JSON.
+Every job brief hands you the exact uploaded file as a ready command (it saves to `post-prod-folder/video/`): run it first. Otherwise `get_download` with `what: "video"` gives the exact uploaded file. If it says only the playback copy can be had, say so in
+your reply. Work in a folder of its own, `post-prod-folder/work/V<the new number>/`; never touch the original. Use ffmpeg for the change (grade, black and white
+from a time, crops and keyframed zooms, speed, captions burned in, audio fixes), matching the source's resolution,
+frame rate and codec family, high quality (for H.264: `-crf 16 -preset slow`, audio copied when you did not touch it).
+Keep that folder (3 Nov 2026: deleting it lost the graphics, so the next round rebuilt them and they drifted). After the upload,
+zip it without the rendered videos (`npx post-prod-mcp zip <folder>`) and `attach_working_files` to the new version, so the next
+round reads the last version's graphic sources (get_version_context lists them) and changes them instead of starting again. Say in
+your summary which folder the files are in.
 
-1. **The words.** `get_words` on every version you cut from (it starts Whisper the first time; ask again a minute later),
-   then run the curl it gives to save `<name>.words.json`. Footage that is only in the project folder has no words: upload
-   each clip first with `upload_file` (no `version_of`) so it becomes a file in the project, then `get_words` on it. Without
-   words the engine cannot protect sentences: say so in your reply if you cut without them.
-2. **Takes.** When there is more than one clip, or the speaker restarts lines, run `find_takes` with the versions. For every
-   line with more than one whole take, `ask_person` with that group's `choices` exactly as given (the room shows each take as
-   a card with a frame and your pick marked) and use the one the person picks. Never choose between whole takes yourself.
-   The order of sections is the story: if it is not clear from the brief or the notes, ask.
-3. **The edit list**, a JSON file in your working folder:
-   ```json
-   { "sources": { "a": { "path": "A001.mp4", "words": "A001.words.json" }, "b": { "path": "A002.mp4", "words": "A002.words.json" } },
-     "clips": [ { "src": "a", "in": 12.4, "out": 41.9, "why": "intro, take 2" },
-                { "src": "b", "in": 3.1, "out": 88.0, "seam": { "type": "j", "ms": 400 } } ],
-     "output": "cut.mp4", "from": { "length_s": 1000.5, "number": 1 } }
-   ```
-   `in` and `out` are where the voice starts and stops in that source (seconds); `seam` is the join INTO that clip. Seams:
-   `cut` (the default: a hard picture cut, the sound blended over 12 ms), `j` (the next voice starts under the picture
-   before, ms is how early: a new thought or a reply), `l` (the picture changes while the voice before finishes: a
-   reaction), `crossfade` (sound blended longer, for a change of room tone), `dissolve` (picture and sound blended: time has
-   passed), `dip` (through black: a new chapter). Talking heads are mostly hard cuts; use dissolves and dips rarely and
-   say why. A J or L cut only between two different pictures (another angle, a cutaway, a different person): on the same
-   framing the speaker's mouth would not match the words, so the engine makes a same-framing J or L a cut with the sound
-   crossfaded and says so (`JL_SAME_SHOT`). The engine also keeps stray frames of the source's own shots out of every join:
-   it moves an edge onto the source's cut when only silence is between, holds a clean frame over a few stray ones, or moves
-   the picture edge (the plan's `picture_moves`). To replace an exact stretch frame for frame, set `"exact": true`: none of
-   that happens. `from` is the version you started from (its length and number) for the room's report. A section from another recording (a pickup, a new take filmed later) is just another source: the engine brings its voice to the level of the first clip; its picture is not colour-matched, so look at a frame either side and say so if it jumps.
-4. **Plan, then render.** `plan <edit-list.json>` first. Each `MID_SENTENCE` problem is a cut that skips words of a sentence
-   that is heard: move that edge to the sentence's start or end (the problem says which), or, only when the person asked for
-   exactly that cut, set `"allow_mid_sentence": true`. Then `render <edit-list.json>`. It refuses while problems remain.
-5. **Look.** Grab a frame either side of a few seams (`ffmpeg -ss <t> -i cut.mp4 -frames:v 1 <png>`) and look at them: a
-   jump cut on the same framing is normal for talking heads; a flash of something unrelated is not. The render's `report`
-   must say `ok`, no unasked-for black, no level jumps at seams; fix the edit list and render again if not.
-6. **Upload** with `upload_file` (`version_of`) as usual, then `complete_task` with `cut_report` set to the render's
-   `cut_report` exactly as printed: the room shows it under your reply (length, cuts, seams, sentences cut, black).
+### Cutting, and graphics
 
-**A change to part of a long video** (a note at 12:40 on a 30-minute cut) does not need the whole file: `get_section` with a
-few seconds either side of the change (the curl saves it), change that stretch with the engine (its source's `words_from` is
-the stretch's `from`, so the version's words file lines up: `{ "path": "section.mp4", "words": "v2.words.json", "words_from":
-755 }`), then `upload_section` with the same `from` and `to` and run its curl. post-prod splices it in (only the frames around
-the change are encoded again) and that becomes the next version; `splice_status` says when it is ready. If the version cannot
-take a stretch (not made by x264, e.g. the camera file), `upload_section` says so: upload the whole file instead. When you
-already have the whole version on disk, `cut-footage.mjs splice --base <file> --from <s> --to <s> --section <file> --out <file>`
-does the same locally before `upload_file`.
-
-**Effects: titles, checklists, subtitles, graphics, zooms, blurs.** A note like "put a title here", "add a checklist of the
-three tips", "subtitles on the intro", "show a map of the route", "zoom in on the screen", "blur the house number" is an
-effect on a stretch, not a cut: `get_section` around it, `cut-footage.mjs effect <effects.json>` on the section, then
-`upload_section` as above. Never hand-write drawtext or overlay filter graphs; the effect command handles fonts, timing, fades
-and the sound (copied untouched). Times are in the section's own seconds; areas are `[x, y, w, h]` as fractions of the frame
-(look at a frame first to place them). **How the text looks** is `"style"`: `font` (a .ttf/.otf path beside the effect list),
-`color`, `accent` (a checklist's tick) and `box` (true, or 0-1 for a bar behind the words). Use what the person asked for, in
-whatever style their channel has. When they have not said, choose on purpose: a font they put in the folder first, else a free one
-that fits the video from Google Fonts (`curl -L -o post-prod-folder/fonts/Name.ttf "https://github.com/google/fonts/raw/main/ofl/<family>/<File>.ttf"`),
-and colours taken from the video. With no colour or box given, the words read the picture behind them (dark on a bright frame,
-white on a dark one, a faint bar on a busy one). The command lists `warnings` when a default slipped through (no font chosen):
-change it, or say they asked for it.
-```json
-{ "input": "section.mp4", "output": "section-fx.mp4", "words": "v2.words.json", "words_from": 755,
-  "layers": [
-    { "type": "title", "text": "Day 3: the summit", "sub": "optional second line", "position": "top|center|bottom|lower-third|left|right", "from": 0.5, "to": 4 },
-    { "type": "checklist", "title": "You need", "items": ["Boots", "Water", "A map"], "at": [5, 6.5, 8], "from": 5, "to": 12 },
-    { "type": "subtitles", "from": 0, "to": 20 },
-    { "type": "graphic", "file": "map.mp4", "mode": "full", "from": 12, "to": 18, "fade": 0.3 },
-    { "type": "graphic", "file": "logo.png", "mode": "box", "area": [0.7, 0.05, 0.25, 0.2], "from": 2, "to": 6 },
-    { "type": "zoom", "area": [0.3, 0.1, 0.4, 0.4], "from": 6, "to": 9, "ease": 0.4 },
-    { "type": "blur", "area": [0.05, 0.6, 0.15, 0.1], "from": 0, "to": 20, "strength": 24 } ] }
-```
-A checklist item appears at its `at` and is ticked half a second later (say each item where the speaker says it: find the
-times in the words); give it an `area` (`[x, y, w, h]`, the rows fit inside) to keep it clear of a face. Take the section
-(`get_section`) out to the end of the last sentence the effect belongs to, plus a second or two: an item said at the very end
-of a section is only on screen until the section stops. A number or fact on a graphic that you do not know (a subscriber
-count, a price, a date) is a placeholder: say so in your reply and ask for the real one. Subtitles come from the words file (`words_from` is the section's `from`). A **graphic** that does not
-exist yet (a map, a counter, a chart, a lower third, titles, a callout, a diagram, an end screen, 3D, a transition), make it
-with the harness (`${CLAUDE_PLUGIN_ROOT}/harness/README.md` is its contract; read it the first time):
-1. `node "${CLAUDE_PLUGIN_ROOT}/bin/animate.mjs" list`, then `new <closest scene> post-prod-folder/work/V<n>/<name>`: start from
-   the library, never from a blank page. Put the note's words and numbers in its `scene.json` props.
-2. The style: save `get_style_guide`'s `look` as `style.json`, and the project's fonts, logos and references in the scene's
-   `reference/` folder (list_attachments, read_attachment). No style profile: ask once (ask_person) whether to learn it now.
-3. `animate.mjs still <scene> --t <s> --style style.json` at the start, the middle and the end. Look at each still: nothing
-   off-centre, touching, overlapping or crossing text, two lines at most.
-4. `animate.mjs render <scene> --style style.json --size <the video's> --format prores` for a graphic OVER the picture
-   (`"mode": "full"` in the effect list), or `--format mp4` for a cutaway that replaces the picture while the voice goes on.
-It refuses (`SLOP`) the looks that read as AI-made when nobody chose them: a default face, gradient text, purple gradients,
-emoji, bounce, glows and glass. Change them, unless the person asked for that look (a gaming channel may want neon): then pass
-`--allow-slop "<their words>"` and say so in your reply. Say what you added where. The scene folder is part of the working
-files you attach, so the next note on it changes the scene and renders it again instead of starting over.
-A chat message from the room that starts "Make a graphic (post-prod:animate):" (the Claude tab's New graphic) is exactly this: make
-the graphic it describes with the harness, at the playhead or selection the message was sent at (the task's context), and post it
-as the next version like any other change.
-
-**Retention cues.** When a render's `cues` lists a subscribe or merch ask, or a sponsor read, say once in your reply where it
-is and that in Retti's data viewers leave more in the ~22 seconds after one (correlation, long-form only), and offer to
-shorten or move it. Never claim that an edit improves retention, and never move it without the person saying so.
+Anything that cuts, reorders, chooses takes, joins clips or fits a new section in goes through the cut engine: read `references/cutting.md` first (see Read before the work). Anything laid over the picture: `references/effects.md`.
 
 ## An edit task (notes)
 
@@ -253,6 +159,8 @@ shorten or move it. Never claim that an edit improves retention, and never move 
    - Can't do it as asked, or it is unclear? `ask_person` with one short question (and `options` when there are a few
      clear choices), then wait for the answer. Never just mark a note failed, and never guess at something only they
      know. `failed` is only for something that truly cannot be done, with exactly what it needs.
+   - A note on an older version: build on the newest, so what later versions changed stays. If you can't keep something, say what in your reply and summary before uploading.
+   - A clash with an obvious answer is not a question. Two graphics in one spot: put the new one after the other, and say so in your reply. Asking is for what to change, not for scheduling.
 5. Render once for all the notes. Check it: grab 3 or 4 frames at the notes' times with ffmpeg
    (`ffmpeg -ss <t> -i <file> -frames:v 1 <png>`) and look at them. Fix and render again if something is not right.
 6. Upload it as the next version: `upload_file` with the task's `project_id`, `version_of` the task's `version_id`,
@@ -286,11 +194,6 @@ Like Opus in a chat: first person, short, natural, specific. No tool-speak, no i
 - Good (a question): "Which green did you have before: the mint #3DDC97 from the website, or something else?"
 - Not: "Task complete. 3 edits suggested. set_id …"
 
-## Launch, product and explainer videos
-
-When the video is a short launch, product or explainer piece, also follow the launch-video-craft skill in this plugin for
-pacing, easing, camera moves, music level and sound, applied to the real project or footage.
-
 ## Rules
 
 - Change copies, never originals: the uploaded file is untouched; a project's files change as an editor's would.
@@ -313,15 +216,3 @@ A `wait_for_feedback` answer that starts `PLUGIN_OUTDATED:` means this post-prod
 away without asking: run its two commands as two separate Bash calls (`claude plugin marketplace update post-prod`, then
 `claude plugin update post-prod@post-prod`; never chained with `&&`, which asks the person), tell the person in one line that it was updated and that a restart of Claude Code (or /reload-plugins) loads it,
 then carry on watching.
-
-## Timing graphics and on-screen text
-
-Never place a graphic at a note's time. A note is one frame, the moment the person was at when they made it: a voice note where
-they stopped and talked, or at the words they talked over while it played; a typed note where they were when they asked. It
-has a range only when they marked one (I and O, a drag, "from here to here"). That moment is often a few seconds after the
-words the graphic belongs to. Before placing
-a graphic or text, read `get_transcript` around the note (look back first, then on) and find the words that give the graphic its reason: the
-line it shows, explains or puts in context. Bring it in on those words (never at 0:00 or the scene's start just because the note
-is early; use the transcript's word times), out when the talk moves on. Before rendering, post a `task_progress` note naming the
-words and time you chose ("Grid in on 'not every block is valued the same' at 0:03.0"), so it shows on their job card, and say it
-again in your summary.

@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { planCut, planSummary } = await import(pathToUrl(path.join(here, 'footage', 'footage-core.js')));
 const { readSources, render, splice, check, reportLines, probe } = await import(pathToUrl(path.join(here, 'footage', 'footage-run.js')));
-const { applyEffects, graphic } = await import(pathToUrl(path.join(here, 'footage', 'footage-fx.js')));
+const { applyEffects, graphic, titleGate } = await import(pathToUrl(path.join(here, 'footage', 'footage-fx.js')));
 function pathToUrl(p) { return new URL(`file:///${p.replace(/\\/g, '/').replace(/^\/+/, '')}`).href; }
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -66,6 +66,8 @@ try {
     out({ ok: r.ok, report: r, lines: reportLines({ report: r }) });
   } else if (cmd === 'effect') {
     const { edl: spec, base } = readEdl(rest[0]);
+    const gate = titleGate(spec, rest[0]);
+    if (!gate.ok) throw Object.assign(new Error(gate.message), { code: gate.code });
     const t0 = Date.now();
     const r = await applyEffects(spec, { base, quality: spec.quality === 'draft' ? 'draft' : 'high', log: (m) => process.stderr.write(`${m}\n`) });
     const rep = await check(r.file);
