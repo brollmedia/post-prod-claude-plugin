@@ -61,7 +61,7 @@ A long watch loop forgets what it read at the start. Before each job, read what 
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.6.1"` (this plugin's version: post-prod.io says when it is out of date)
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.6.2"` (this plugin's version: post-prod.io says when it is out of date)
 and your model name in `model` (and `for_team` in team mode). On the first call add `tools` from `animate.mjs hf status`. Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 

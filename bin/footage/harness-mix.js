@@ -4,12 +4,34 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { run, FF } from './footage-run.js';
-import { roomImpulse } from './harness-sound.js';
+import { roomImpulse, peakOf } from './harness-sound.js';
 
 export const LEVELS = { voice: -16, music: -16, sfx: -25, bed: -32, master: -14 }; // bed: our start, his rule is "if you can clearly hear a pad, it's probably too loud"
 export const BIG_PEAK = -14; // the loudest hit in his films, dBFS
 export const DUCK = { gate: -42, attack: 40, release: 375, narration: 9, lively: 6.5, drop: 5, bed: 4 };
 export const KIND_ORDER = { voice: 0, sfx: 3 }; // a voice goes in first, so a duck hears it; effects go last, so nothing ducks under them
+// land: peaks this close, both with a body, read as one moment. frame: this close, even clicks add up. body: shorter than this is a tick, and a fast count of ticks isn't a stack.
+// floor: this long or more is room or a pad, not a hit. lift: how far a stack may read above its lead, in dB.
+export const STACK = { land: 0.25, frame: 0.04, body: 0.2, floor: 3, lift: 1.5 };
+
+/**
+ * Sounds that land together add up, however well each one is set, and the stem's whole-film checks can't see one moment. So one leads and the rest
+ * come down, only those, only as far as keeps the moment within STACK.lift of the lead on its own ("if two moves overlap, one should clearly lead").
+ * hits: [{ at, peak, length, stack }]: when its peak lands, that peak in dBFS, its seconds, and stack: false to leave it out. → dB to add to each (0 or less, pure)
+ */
+export function stackTrims(hits) {
+  const trims = hits.map(() => 0), left = hits.map((h, i) => ({ ...h, i })).filter((h) => h.length < STACK.floor && h.stack !== false).sort((a, b) => a.at - b.at);
+  const lands = (a, b) => { const gap = Math.abs(a.at - b.at); return gap <= STACK.frame || (gap <= STACK.land && a.length >= STACK.body && b.length >= STACK.body); };
+  const power = (db) => 10 ** (db / 10);
+  while (left.length) {
+    const first = left.shift(), group = [first];
+    for (let j = left.length - 1; j >= 0; j--) if (lands(first, left[j])) group.push(...left.splice(j, 1));
+    if (group.length < 2) continue;
+    const lead = group.reduce((a, b) => (b.peak > a.peak ? b : a)), rest = group.filter((h) => h !== lead), have = rest.reduce((n, h) => n + power(h.peak), 0), room = power(lead.peak) * (power(STACK.lift) - 1);
+    if (have > room) { const t = 10 * Math.log10(room / have); for (const h of rest) trims[h.i] = t; }
+  }
+  return trims;
+}
 
 /** The ratio that gives this depth for a voice at this level, with the threshold at his gate (pure). The depth is what he sets, so the ratio follows the voice. */
 export function duckRatio(voiceLufs, depth = DUCK.narration, gate = DUCK.gate) {
@@ -70,15 +92,20 @@ export async function kindGain(file, kind, x = {}) {
 
 /**
  * The effects, as one stem: his chain, a small room at 25% wet filtered 300 Hz to 9 kHz, 2:1 compression, and no louder than -25 LUFS.
- * An item with peak_db is set by its peak, the way his films set each sound. items: [{ src, at, from, to, gain_db, peak_db, pan, fade_in, fade_out }].
- * Quiet effects stay quiet: this only ever turns the stem down. → the wav
+ * An item with peak_db is set by its peak, the way his films set each sound. Sounds that land together are held by stackTrims, the one check that sees a
+ * moment. items: [{ src, at, from, to, gain_db, peak_db, pan, fade_in, fade_out, stack }]. Quiet effects stay quiet: this only ever turns the stem down. → the wav
  */
 export async function sfxStem(items, { dir, seconds, work, name = 'sfx' }) {
-  const ins = [], parts = [];
-  for (const [i, x] of items.entries()) {
-    const src = path.resolve(dir, x.src), len = x.to != null ? Math.max(0.01, +x.to - (+x.from || 0)) : null;
+  const ins = [], parts = [], set = [];
+  for (const x of items) {
+    const src = path.resolve(dir, x.src), part = { from: +x.from || 0, to: x.to };
     if (!fs.existsSync(src)) throw Object.assign(new Error(`The sound ${x.src} is not there.`), { code: 'NO_AUDIO' });
-    const gain = x.peak_db != null ? +x.peak_db - ((await measure(src, '', { from: +x.from || 0, to: x.to })).peak ?? 0) : +x.gain_db || 0, ms = Math.round(Math.max(0, +x.at || 0) * 1000), pan = panFilter(x.pan);
+    const own = (await measure(src, '', part)).peak ?? 0, gain = x.peak_db != null ? +x.peak_db - own : +x.gain_db || 0, { seconds, length } = await peakOf(src, part);
+    set.push({ src, gain, at: Math.max(0, +x.at || 0) + seconds, peak: own + gain, length, stack: x.stack });
+  }
+  const trims = stackTrims(set);
+  for (const [i, x] of items.entries()) {
+    const { src } = set[i], gain = set[i].gain + trims[i], len = x.to != null ? Math.max(0.01, +x.to - (+x.from || 0)) : null, ms = Math.round(Math.max(0, +x.at || 0) * 1000), pan = panFilter(x.pan);
     ins.push('-ss', String(+x.from || 0), ...(len ? ['-t', String(len)] : []), '-i', src);
     parts.push(`[${i}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${gain.toFixed(2)}dB${x.fade_in ? `,afade=t=in:st=0:d=${+x.fade_in}` : ''}${x.fade_out && len ? `,afade=t=out:st=${Math.max(0, len - x.fade_out)}:d=${+x.fade_out}` : ''}${pan ? `,${pan}` : ''},adelay=${ms}|${ms}[a${i}]`);
   }

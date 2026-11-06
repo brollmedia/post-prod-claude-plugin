@@ -127,6 +127,7 @@ Under a voice, digital silence sounds like a dropout and exposes every cut, so e
 
 ## Layers and pan
 The kit's impact is already three layers. For your own stacks, start at: sub 30-120 Hz, body 120-2000 Hz, air and click 2-10 kHz. High-pass every non-sub layer at 100-150 Hz, low-pass the sub at 150-200 Hz, keep the sub centred, align transients within 1-2 ms. If the summed peak is lower than the largest layer, a layer is out of polarity: flip it.
+Sounds that land together add up, so one leads. Hits whose peaks fall within 0.25 s (0.04 s for ticks and clicks) are held within 1.5 dB of the loudest alone: `compose` turns down the others, only those. Layers of one hit that you built on purpose take `stack: false`.
 Pan follows the motion. `dir: 'right'` sweeps -0.6 to +0.6, `dir: 'left'` the reverse, and no `dir` stays centred. For a harder sweep (±0.8 on a fast cross-screen move) pan your own file. Keep ticks and pops within `pan` ±0.3 (start at). Impact, sub, riser and swell have no pan option: they stay centred, which is right.
 Reverb: every `sfx` gets the small room from the chain, so don't add more.
 Keep the voice clear: during speech, voice must beat music + SFX by 10 dB in the 1-4 kHz band, 15 dB on key words (start at). The default whoosh sweeps straight through that band, so check it:

@@ -212,11 +212,13 @@ export function roomImpulse(file) {
   return file;
 }
 /** Seconds into a file of its loudest sample, so a recording's peak can land on the frame. */
-export async function peakSeconds(file) {
-  const raw = await ff(['-hide_banner', '-loglevel', 'error', '-i', path.resolve(file), '-ac', '1', '-ar', '12000', '-f', 'f32le', '-'], { bin: true });
+export async function peakSeconds(file) { return (await peakOf(file)).seconds; }
+/** Where the part of a file that plays is loudest, and how long that part is. → { seconds, length } */
+export async function peakOf(file, { from = 0, to = null } = {}) {
+  const raw = await ff(['-hide_banner', '-loglevel', 'error', ...(from ? ['-ss', String(from)] : []), ...(to != null ? ['-t', String(to - from)] : []), '-i', path.resolve(file), '-ac', '1', '-ar', '12000', '-f', 'f32le', '-'], { bin: true });
   const s = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.length - (raw.length % 4)));
   let at = 0, top = 0; for (let i = 0; i < s.length; i++) { const a = Math.abs(s[i]); if (a > top) { top = a; at = i; } }
-  return at / 12000;
+  return { seconds: at / 12000, length: s.length / 12000 };
 }
 
 // ── the check ──
