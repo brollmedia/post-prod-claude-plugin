@@ -12,7 +12,7 @@ node bin/animate.mjs check <scene> [--aspect 9:16]         measure every frame, 
 node bin/animate.mjs render <scene> [--final] [--aspect 9:16 | --size 1080x1920] [--fps 60] [--format mp4|prores|webm|png]
      [--duration 6] [--workers 4] [--style look.json] [--ref reference/] [--props props.json] [--out f.mp4]
 node bin/animate.mjs sfx <kind> [--out f.wav] [--dur .5] [--seed 3] [--note 220]   one original sound effect, made here
-node bin/animate.mjs sound <file> [--hits 1.2,3.4] [--target -14] [--overlay]      measure a mix
+node bin/animate.mjs sound <file> [--hits 1.2,3.4] [--target -14] [--overlay]      measure a mix (--target for a finished voiced mix)
 node bin/animate.mjs level <piece> --into <video> --out f.mp4 [--from 10 --to 40] [--gap]   bring a piece down to the voice in a video
 node bin/animate.mjs strip <video> [--out folder]           the frames either side of every cut
 node bin/animate.mjs compose spec.json                      clips, transitions, overlays, picture in picture, sound
@@ -59,6 +59,7 @@ Kit helpers:
 - `PP.f(n)`: seconds from frames at 30 fps, scaled by the look's pace.
 - `PP.stagger(i, n, step, cap)`, `PP.digits(el)` (a counter that never shifts), `PP.fit(el, maxW, maxPx, minPx)`.
 - `PP.ground()`: a full-frame ground with one light and a vignette. `PP.hash`, `PP.noise`, `PP.noise2`: seeded.
+- Library scenes are silent unless `props.sound` is true: no sound unless they asked for it or brought their own.
 - `sound` in `PP.scene`: `[{ sfx: 'whoosh', hit: 1.2, gain_db: -20, dur: .4, seed: 3 }]`, timed from the same numbers as the picture. `hit` puts the sound's loudest moment on that time. Kinds: whoosh, riser, impact, tick, pop, sub, swell, shimmer, rollup, pad, room.
 - `PP.num()`: formats a number.
 - `PP.split(el, letters)`: splits text into words (or letters).
@@ -74,7 +75,7 @@ Kit helpers:
 - **Fonts:** a font file that fails to load stops the render (`FONT_FAILED`). So does a face the page names but never loads (`FONT_MISSING`). A system font gets a warning, because it may be missing on another computer.
 - **Audio:** the manifest's sounds are mixed in sync.
 - **Speed:** frames are drawn by several browsers at once.
-- **Final:** `--final` is the finished look: motion blur (180° shutter, 8 sub-frames, centred), drawn at 2×, the look's film grain, and a full-frame piece's sound brought to -14 LUFS. Drafts are sharp and quick. `--shutter`, `--samples` and `--ss` set them apart.
+- **Final:** `--final` is the finished look: motion blur (180° shutter, 8 sub-frames, centred), drawn at 2×, the look's film grain, and a full-frame piece with a voice or track of theirs brought to -14 LUFS. Effects alone stay where you set them. Drafts are sharp and quick. `--shutter`, `--samples` and `--ss` set them apart.
 - **Colour:** frames are converted to Rec. 709 and tagged, so a colour in a scene is the colour in the file.
 - **Where it runs:** on the creator's own Chrome or Edge on Windows or Mac, and on our server with Chromium.
 
@@ -106,7 +107,7 @@ Kit helpers:
 { "size": "1920x1080", "fps": 30,
   "clips": [ { "src": "a.mp4", "from": 2, "to": 6 }, { "src": "b.mp4", "from": 0, "to": 4, "transition": { "type": "scene", "scene": "library/transition", "ms": 800 } } ],
   "layers": [ { "src": "lower-third.mov", "at": 1.0 }, { "src": "screen.mp4", "at": 3, "x": 0.62, "y": 0.06, "w": 0.33, "h": 0.33, "border": "#F3EBDD" } ],
-  "audio": [ { "src": "bed.mp3", "at": 0, "gain_db": -18, "duck": true } ],
+  "audio": [ { "src": "voice.wav", "kind": "voice" }, { "src": "song.mp3", "kind": "music", "drops": [12.4] }, { "src": "pad.wav", "kind": "bed" }, { "src": "click.wav", "kind": "sfx", "at": 3, "peak_db": -15 } ],
   "out": "final.mp4" }
 ```
 - `base` (one file) can stand in for `clips`.
@@ -124,9 +125,9 @@ Kit helpers:
 ## The starter library
 `animate.mjs list` shows them. Each is a styled, editable scene with its content in `scene.json` props:
 - A `compose` spec can take `"master": -14` to bring the whole piece to that level, as `render --final` does.
-- **Titles and type:** `title-sequence` (contour world, a route, the title, with sound), `kinetic-title`, `title-over` (a title on plates, over footage), `quote-card` (the quote fills the frame, in two forms), `lower-third` (two forms), `subtitles` (sentence, word highlight or chunks), `meme-caption`
+- **Titles and type:** `title-sequence` (contour world, a route, the title), `kinetic-title`, `title-over` (a title on plates, over footage), `quote-card` (the quote fills the frame, in two forms), `lower-third` (two forms), `subtitles` (sentence, word highlight or chunks), `meme-caption`
 - **On footage:** `callout` (ring, arrow, label, highlight box, keyed to follow), `before-after` (a grade wipe and a split screen), `screen-frame` (a screen recording with zoom, cursor and highlight)
-- **Data:** `stat-reveal` (a count with a to-scale bar and a payoff, with sound), `data-chart` (a waterfall), `counter` (a count with a sparkline), `countdown` (a timer dial with a target window)
+- **Data:** `stat-reveal` (a count with a to-scale bar and a payoff), `data-chart` (a waterfall), `counter` (a count with a sparkline), `countdown` (a timer dial with a target window)
 - **Maps and explainers:** `map-route` (Natural Earth, Mercator, a route that draws), `diagram` (steps with line icons)
 - **Brand:** `logo-endscreen` (logo reveal, subscribe and bell, YouTube end screen)
 - **3D:** `particles-3d` (three.js, instanced, seeded so every frame is the same however it renders)

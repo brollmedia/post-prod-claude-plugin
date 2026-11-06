@@ -115,15 +115,14 @@ try {
       // their render is a final too, unless it is plainly a draft
       const q = args.indexOf('--quality'), final = args[0] === 'render' && !(q >= 0 && args[q + 1] === 'draft'), over = final ? needClean(cwd) : null;
       if (over) log(`Accepted without a fix: ${over.codes.join(', ')} (${over.because}). Say so in your reply.`);
-      // a full-frame film has sound. It comes out of their render silent, so sounds.json is mixed in and mastered straight after. An overlay under a voice is exempt
+      // it comes out of their render silent, and that is the default. sounds.json, there only when they asked for sound, is mixed in straight after
       const f = args.indexOf('--format'), overlay = f >= 0 && /^(mov|webm|png-sequence)$/.test(args[f + 1]), sounds = path.join(cwd, 'sounds.json'), scored = final && !overlay && fs.existsSync(sounds);
-      if (final && !overlay && !scored && String(opt.silent || '').trim().length < 12) throw Object.assign(new Error('A full-frame film needs sound. Write sounds.json beside index.html: { "audio": [ { "src": "hit.wav", "at": 2.1, "gain_db": -9 } ] }, from animate.mjs sfx and your timeline, and this render will mix it in and master it. If it goes under a voice, pass --silent "<why>" and say so in your reply.'), { code: 'NO_SOUND' });
       const r = await hfRun(args, { cwd });
       if (r.ok && scored) {
         const o = args.indexOf('-o'), file = o >= 0 ? args[o + 1] : null, index = fs.readFileSync(path.join(cwd, 'index.html'), 'utf8');
         if (!file) throw Object.assign(new Error('Give the render an output with -o, so the sound can be mixed in.'), { code: 'BAD_ARGS' });
         const size = `${/data-width="(\d+)"/.exec(index)?.[1] || 1920}x${/data-height="(\d+)"/.exec(index)?.[1] || 1080}`, spec = json(sounds), tmp = `${file}.sound.mp4`;
-        const c = await compose({ base: file, audio: spec.audio || [], master: spec.master ?? -14, size, out: tmp }, { base: cwd, log });
+        const c = await compose({ base: file, audio: (spec.audio || []).map((x) => ({ kind: 'sfx', ...x })), master: spec.master ?? null, size, out: tmp }, { base: cwd, log });
         fs.renameSync(c.file, path.resolve(cwd, file));
         r.output = `${r.output}\nsound mixed in and mastered: ${file}`;
       }

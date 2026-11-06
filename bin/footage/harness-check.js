@@ -381,12 +381,12 @@ export function analyseNumerals(cols, size, text, L = LIMITS) {
 }
 /** On social the first frame is the thumbnail (pure). bands from emptyBands. */
 export const analyseFirstFrame = (bands, L = LIMITS) => (bands.used < L.first_frame_used ? [{ code: 'EMPTY_FIRST_FRAME', at: 0, what: 'the first frame is empty, and on social the first frame is the thumbnail: have something on screen from frame 0' }] : []);
-/** A full-frame piece with no sound (pure). An overlay never gets here. */
-export const analyseSilence = ({ sounds }) => (!sounds ? [{ code: 'SILENT_PIECE', at: 0, what: 'a full-frame piece with no sound: give it a bed and mark the moves (craft/sound.md). If it goes under a voice, accept this and say so' }] : []);
+/** A full-frame piece with no sound (pure). Advice, not a fault: effects are off unless asked (6 Nov 2026). Silence beats a bad sound. */
+export const analyseSilence = ({ sounds }) => (!sounds ? [{ code: 'SILENT_PIECE', at: 0, what: 'no sound, which is the default: leave it silent unless they asked for sound or brought their own' }] : []);
 
 // ── what stops a final ──
 /** Faults a viewer sees. The rest of what check says is advice: worth a look, and no reason to stop a render. */
-export const BLOCKING = ['DEFAULT_LOOK', 'OUTSIDE_SAFE', 'TEXT_OVERLAP', 'LINE_THROUGH_TEXT', 'TOUCHING', 'LOW_CONTRAST', 'LOOSE_NUMERAL', 'INK_TIGHT', 'POINTER_ADRIFT', 'DEAD_ZONE', 'HERO_SMALL', 'EMPTY_FIRST_FRAME', 'SILENT_PIECE', 'TOO_SMALL', 'TOO_MANY_LINES', 'NO_EXIT', 'NOT_ENOUGH_READ_TIME'];
+export const BLOCKING = ['DEFAULT_LOOK', 'OUTSIDE_SAFE', 'TEXT_OVERLAP', 'LINE_THROUGH_TEXT', 'TOUCHING', 'LOW_CONTRAST', 'LOOSE_NUMERAL', 'INK_TIGHT', 'POINTER_ADRIFT', 'DEAD_ZONE', 'HERO_SMALL', 'EMPTY_FIRST_FRAME', 'TOO_SMALL', 'TOO_MANY_LINES', 'NO_EXIT', 'NOT_ENOUGH_READ_TIME'];
 export const CHECK_FILE = '.pp-check.json';
 /** What a check result is true of: the files that make the picture, and how it was asked for. Change either and it must be checked again. */
 export function sceneHash(dir, extra = '') {

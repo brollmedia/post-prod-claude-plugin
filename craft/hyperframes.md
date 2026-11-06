@@ -15,10 +15,8 @@ Run every command through the wrapper: `node "${CLAUDE_PLUGIN_ROOT}/bin/animate.
 6. Render: `hf run --dir <name> -- render . -o out.mp4` for full-screen, `-o out.mov --format mov` for anything over the picture (it keeps transparency). It refuses until `check` is clean for exactly those files: fix what it names. A false alarm you have looked at: `hf run --dir <name> --accept CODE --because "what you saw" -- render …`, and say so in your reply.
 
 ## Sound
-It comes out silent, and silent isn't finished. Write the beats down from your timeline, then:
-- **Full-screen: a render refuses without sound.** Make effects with `animate.mjs sfx`, then write `sounds.json` beside `index.html`: `{ "audio": [ { "src": "hit.wav", "at": 2.1, "gain_db": -9 } ] }`, with room tone and a bed the whole way, as `sound.md` says. The render mixes it in and masters it to -14. A piece that plays under a voice: `--silent "<why>"`, and say so in your reply.
-- **Over the picture: it may stay silent** when it sits under a voice. When there's a gesture worth hearing, keep it quiet (whoosh about -22, tick about -27) and put it in the `.mov`: `ffmpeg -i out.mov -i sound.wav -c:v copy -c:a pcm_s16le -shortest final.mov`.
-Then `animate.mjs sound <file> --hits <times>`.
+It comes out silent, and that's the default: no sound unless they asked for it or brought their own.
+When they did, read `sound.md`, then write `sounds.json` beside `index.html`: `{ "audio": [ { "src": "hit.wav", "at": 2.1, "peak_db": -23 } ] }`. The render mixes it in. An overlay's sound goes in the `.mov`: `ffmpeg -i out.mov -i sound.wav -c:v copy -c:a pcm_s16le -shortest final.mov`. Then `animate.mjs sound <file> --hits <times>`.
 
 ## When it fails
 `hf run` says why in plain words. Pass that on, and make the piece with the harness instead: `new`, `check`, `render --final`. `HF_PERSONS_OWN`, `HF_NEEDS_ACCOUNT` and `HF_NEEDS_PRO` belong to the person's own account: Claude never signs in or spends for them.

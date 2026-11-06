@@ -127,7 +127,7 @@
       $('black').style.opacity = PP.p(t, T.out, T.out + F(30), PP.ease.inOut);
     },
     // A warm chord under everything, a breath in, one soft hit as the title lands: a score in miniature, and silence after.
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'pad', at: 0, dur: D, seed: 6, note: +P.note || 98, gain_db: -9 },
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       { sfx: 'swell', hit: T.title + F(2), dur: 1.1, seed: 3, gain_db: -16 },

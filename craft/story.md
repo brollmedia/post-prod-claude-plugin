@@ -15,7 +15,7 @@ Frame 0 is the thumbnail on social and the first impression everywhere else, so 
 Start at 10% hook, 60% middle, 20% payoff, 10% landing, then fit it to the words. Each beat changes one thing and the next beat answers it. A piece that only appears and holds has no beats.
 
 ## Shots
-For each shot write a line: frames, hero move, how long the words have to be read, the sound, and how it hands off to the next. Speech runs at about 2.2 words a second, so count the script against the time before animating.
+For each shot write a line: frames, hero move, how long the words have to be read, and how it hands off to the next. Speech runs at about 2.2 words a second, so count the script against the time before animating.
 
 ## Storyboard
 On anything over 15 s, render one still per shot first and look at them as a set: `still --t`. With a review link, send the stills as a version and take notes on the frames: only the noted frames are redone. It costs a minute and saves the render.

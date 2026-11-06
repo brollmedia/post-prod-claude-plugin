@@ -158,7 +158,7 @@
       close.style.transform = `translateY(${(1 - PP.p(t, tClose, tClose + F(16), E)) * 110}%)`;
     },
     // one soft pop per step, never the same twice, and a little light on the closing line
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       ...steps.map((_, i) => ({ sfx: 'pop', hit: at(i) + F(8), seed: 3 + i, note: 340 * (1 + 0.04 * i), gain_db: -24 - (i % 2) })),
       { sfx: 'shimmer', hit: tClose + F(4), dur: 1.4, seed: 2, note: 880, gain_db: -26 },

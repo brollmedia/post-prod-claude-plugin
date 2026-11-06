@@ -164,7 +164,7 @@
       }
     },
     // an overlay gets a gesture, not a noise: one soft pop as the label lands, a quieter tick for the second detail
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'pop', hit: T.line + F(3), seed: 3, gain_db: -26 },
       { sfx: 'tick', hit: BL.line + F(3), seed: 5, gain_db: -28, note: 2200 },
     ]),

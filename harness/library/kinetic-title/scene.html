@@ -84,7 +84,7 @@
       }
     },
     // a card lands once: a breath in, one soft hit under the title, then quiet
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       { sfx: 'swell', hit: LAND, dur: 0.8, seed: 3, gain_db: -19 },
       { sfx: 'impact', hit: LAND, seed: 6, size: 0.8, gain_db: -13 },

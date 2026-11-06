@@ -62,7 +62,7 @@
       });
     },
     // one move in, one tick as the title lands, a quieter move out
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'whoosh', hit: start(0) + LEN * 0.3, dur: 0.42, seed: 5, gain_db: -21, low: 400, high: 3800, dir: right ? 'left' : 'right' },
       { sfx: 'tick', hit: start(0) + F(7) + SWEEP * 0.6, seed: 3, gain_db: -26, note: 1700 },
       { sfx: 'whoosh', hit: OUT + OUTLEN * 0.5, dur: 0.28, seed: 8, gain_db: -27, low: 700, high: 3600, dir: right ? 'right' : 'left' },

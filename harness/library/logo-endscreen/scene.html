@@ -214,7 +214,7 @@
       $('circ').style.visibility = t >= T.circ ? 'visible' : 'hidden';
     },
     // the logo lands once, the two clicks are real clicks, and the end screen comes in on one soft move; then quiet, for the voice-over
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       { sfx: 'swell', hit: T.word + F(14), dur: 0.8, seed: 3, gain_db: -18 },
       { sfx: 'impact', hit: T.word + F(14), seed: 6, size: 0.9, gain_db: -12 },

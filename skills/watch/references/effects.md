@@ -44,7 +44,7 @@ with the harness (`${CLAUDE_PLUGIN_ROOT}/harness/README.md` is its contract; rea
    `${CLAUDE_PLUGIN_ROOT}/craft/critique.md` says: every moment, not only the last frame.
 4. `animate.mjs render <scene> --final --size <the video's> --format prores` for a graphic OVER the picture
    (`"mode": "full"` in the effect list), or `--final --format mp4` for a cutaway that replaces the picture while the voice goes on. Its sound goes in with it, brought down under the voice; set `"sound": false` on the layer to leave it out.
-   Then `animate.mjs sound <file> --hits <the render's hits> --overlay`, because you cannot hear it.
+   If it has sound: `animate.mjs sound <file> --hits <the render's hits> --overlay`, because you cannot hear it.
 It refuses (`SLOP`) the looks that read as AI-made when nobody chose them: a default face, gradient text, purple gradients,
 emoji, bounce, glows and glass. Change them, unless the person asked for that look (a gaming channel may want neon): then pass
 `--allow-slop "<their words>"` and say so in your reply. Say what you added where. The scene folder is part of the working

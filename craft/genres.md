@@ -61,6 +61,7 @@ When there is footage, take the accent from the video.
 6. Run `check`: LOW_CONTRAST tests overlays on bright and dark footage. The accent stays under 10-15% of the area, or it stops meaning anything.
 
 ## The looks
+Each look's sound line applies only when they asked for sound. Otherwise a look is silent. The table in `sound.md` beats any line here.
 `new <scene> <folder> --look <name>`. Times are the look's own: read `PP.motion.main_frames` through `PP.f()`, which applies the pace. A number without a source below is marked "start at".
 
 ### documentary (travel, history, long stories)

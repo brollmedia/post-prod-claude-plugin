@@ -179,7 +179,7 @@
       });
     },
     // a low bed under the journey, one tick per stop, and a small landing on arrival
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'pad', at: 0, dur: D, seed: 6, note: +P.note || 98, gain_db: -15 },
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       ...stopT.slice(1, -1).map((a, i) => ({ sfx: 'tick', hit: a + F(1), seed: 3 + i, note: 2100 + 160 * i, gain_db: -24 })),

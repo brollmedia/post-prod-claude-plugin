@@ -104,7 +104,7 @@
       });
     },
     // a wipe is a move: one soft whoosh on each of the two big moves, and the panels' landing gets the only tick
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       { sfx: 'whoosh', hit: T.d1 + T.d1Len * 0.5, dur: 0.8, seed: 3, gain_db: -18, dir: 'left' },
       { sfx: 'whoosh', hit: T.d2 + T.d2Len * 0.5, dur: 0.7, seed: 5, gain_db: -19, dir: 'left' },

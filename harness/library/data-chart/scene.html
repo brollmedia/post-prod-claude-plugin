@@ -98,7 +98,7 @@
       src.style.opacity = 0.8 * PP.p(t, T.emph + F(6), T.emph + F(16));
     },
     // the bars climb on one soft rollup, and the punchline gets the one small hit
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       { sfx: 'rollup', hit: LANDED, dur: Math.min(5, Math.max(0.5, LANDED - T.row0)), seed: 3, gain_db: -24, rate: 14 },
       { sfx: 'swell', hit: T.emph + F(2), dur: 0.6, seed: 2, gain_db: -22 },

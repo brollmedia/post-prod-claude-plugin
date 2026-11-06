@@ -19,11 +19,29 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { planCut, tidyWords, segmentSamples, gainAt, spliceWindow, x264ParamsFrom, ppsFields, fpsArg, RATE, SEAM_MS, planSummary, clock, MIN_CLIP_S } from './footage-core.js';
 
-const FF71 = 'C:/Users/sethf/tools/ffmpeg-7.1-essentials_build/bin/ffmpeg.exe';
-export const FF = process.env.FFMPEG || (fs.existsSync(FF71) ? FF71 : 'ffmpeg');
+/** Which ffmpeg to run (pure but for the disk): FFMPEG, else the one on the PATH, else where a fresh install lands before this shell's PATH knows of it. Left as plain 'ffmpeg' when there is none, so run says it isn't installed. */
+export function findFfmpeg(env = process.env, exists = fs.existsSync, win = process.platform === 'win32') {
+  if (env.FFMPEG) return env.FFMPEG;
+  const name = win ? 'ffmpeg.exe' : 'ffmpeg';
+  if (String(env.PATH || env.Path || '').split(path.delimiter).some((d) => d && exists(path.join(d, name)))) return 'ffmpeg';
+  const installed = win ? (env.LOCALAPPDATA ? [path.join(env.LOCALAPPDATA, 'Microsoft', 'WinGet', 'Links', name)] : []) : ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'];
+  return installed.find((f) => exists(f)) || 'ffmpeg';
+}
+export const FF = findFfmpeg();
 export const FP = process.env.FFPROBE || (FF.endsWith('ffmpeg.exe') ? FF.replace(/ffmpeg\.exe$/, 'ffprobe.exe') : FF === 'ffmpeg' ? 'ffprobe' : FF.replace(/ffmpeg$/, 'ffprobe'));
 const num = (x) => (Math.round(x * 1e6) / 1e6).toString();
 const r3 = (x) => Math.round(x * 1000) / 1000;
+
+/** How this ffmpeg reads a filter graph from a file (pure). 7 brought -/filter_complex, and current ffmpeg no longer knows -filter_complex_script. A build with no number (a nightly) counts as current. */
+export function graphFileFlag(versionText) {
+  const major = +(/ffmpeg version n?(\d+)\./.exec(versionText || '')?.[1] || 0);
+  return major && major < 7 ? '-filter_complex_script' : '-/filter_complex';
+}
+let graphFlag = null;
+export async function graphFileArgs(file) {
+  if (!graphFlag) { const { out } = await run(FF, ['-version']); graphFlag = graphFileFlag(String(out)); }
+  return [graphFlag, file];
+}
 
 /** Run a program; resolve with { out (Buffer), err (string) }, reject with the last lines of stderr on a non-zero exit. */
 export function run(bin, args, { input = null, raw = false } = {}) {

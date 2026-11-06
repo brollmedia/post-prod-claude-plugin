@@ -109,7 +109,7 @@
       prog.style.opacity = PP.p(t, C0, C0 + F(3));
     },
     // a clock ticks: the rollup runs under the count, quiet, and one pop as it stops
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'rollup', hit: LAND, dur: Math.min(CS, 6), seed: 3, gain_db: -31 },
       { sfx: 'pop', hit: LAND + F(1), seed: 2, gain_db: -26 },
     ]),

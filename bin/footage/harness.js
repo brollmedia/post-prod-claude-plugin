@@ -35,7 +35,8 @@ import { run, probe, FF } from './footage-run.js';
 import { findBrowser, slopCheck, CLOCK, cdp } from './footage-fx.js';
 import { PROBE, PATHS, analyseLineThrough, analyseNumerals, LIMITS, analyseLayout, analyseInk, analysePointers, settleThin, analyseDeadZone, analyseLook, analyseStale, analyseHero, analyseFirstFrame, analyseSilence, changesIn, contentGrid, emptyBands, recentLooks, rememberLook, analyseCentre, analyseMotion, motionTracks, keyMoments, sheetHtml, summarise, wordsIn, parseRgb, luminance, contrast, fileUrl, textBlocks } from './harness-check.js';
 import { hfCheckCopy } from './harness-hf.js';
-import { makeSfx, soundCheck, parseEbur, isMastered, levelGain, levelInto, MASTERED_TAG, UNDER_VOICE, SFX_KINDS } from './harness-sound.js';
+import { makeSfx, soundCheck, parseEbur, isMastered, levelGain, levelInto, MASTERED_TAG, UNDER_VOICE, SFX_KINDS, peakSeconds } from './harness-sound.js';
+import { sfxStem, kindGain, chainOf, measure, duckFilter, musicFilter, masterFilter, GLUE, LEVELS, DUCK, KIND_ORDER } from './harness-mix.js';
 
 const err = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
 export const FORMATS = ['mp4', 'prores', 'webm', 'png'];
@@ -283,8 +284,9 @@ export async function renderScene(o = {}) {
     }));
     for (const b of browsers.splice(0)) await b.close();
     if (format !== 'png') await joinSegments(segs, out, work, format);
-    const audio = await soundsFor([...(m.audio || []), ...(page.sound || []), ...(o.audio || [])], { work });
-    if (audio.length) await mixAudio({ audio, dir: sc.dir, out, format, from, seconds: N / fps, work, master: o.final && !alpha ? -14 : null });
+    const listed = [...(m.audio || []), ...(page.sound || []), ...(o.audio || [])], audio = await soundsFor(listed, { work, base: sc.dir });
+    // only a piece with a voice or a track of theirs is brought to delivery level. Effects alone stay where they were set: the master raised them 12 to 14 dB (6 Nov 2026)
+    if (audio.length) await mixAudio({ audio, dir: sc.dir, out, format, from, seconds: N / fps, work, master: o.final && !alpha && listed.some((x) => x.src) ? -14 : null });
     const render_s = Math.round((Date.now() - t0) / 100) / 10;
     log(`harness: done in ${render_s} s -> ${out}`);
     return { file: out, kind: 'html', frames: N, seconds: N / fps, width, height, fps, format, alpha, workers, render_s, fonts: page.used, final: !!o.final, hits: [...new Set(audio.filter((x) => x.hit != null && /^(impact|tick|pop)$/.test(x.sfx || '')).map((x) => Math.round(x.hit * 1000) / 1000))], warnings: style.warnings, slop_allowed: slop.length ? slop : undefined };
@@ -339,14 +341,14 @@ async function joinSegments(segs, out, work, format) {
  * The scene's sounds, ready to mix: { sfx: 'whoosh', dur, seed, ... } is made here, and hit puts the sound's loudest moment on that
  * time instead of its first sample (a whoosh peaks at the middle of the move, not where its file starts).
  */
-async function soundsFor(list, { work }) {
+async function soundsFor(list, { work, base = null }) {
   const out = [];
   for (const [i, x] of list.entries()) {
     let y = { ...x };
     if (x.sfx) {
       const made = makeSfx(x.sfx, { ...x, file: path.join(work, `sfx-${i}.wav`) });
-      y = { ...y, src: made.file, peak_s: made.peak_s };
-    }
+      y = { ...y, src: made.file, peak_s: made.peak_s, kind: x.kind || (x.bed ? 'bed' : 'sfx') };
+    } else if (x.hit != null && base) y.peak_s = await peakSeconds(path.resolve(base, x.src));
     if (x.hit != null) y.at = Math.max(0, +x.hit - (y.peak_s || 0));
     out.push(y);
   }
@@ -354,20 +356,23 @@ async function soundsFor(list, { work }) {
 }
 
 /** The manifest's sounds, each at its moment, mixed and laid under the picture (the picture is not encoded again). */
-async function mixAudio({ audio, dir, out, format, from, seconds, work, master = null }) {
+async function mixAudio({ audio: listed, dir, out, format, from, seconds, work, master = null }) {
+  const fx = listed.filter((x) => x.kind === 'sfx'), audio = listed.filter((x) => x.kind !== 'sfx');
+  if (fx.length) audio.push({ src: await sfxStem(fx.map((x) => ({ ...x, at: (+x.at || 0) - from })), { dir, seconds, work }), at: from });
   const ins = [], parts = [];
-  audio.forEach((x, i) => {
+  for (const [i, x] of audio.entries()) {
     const src = path.resolve(dir, x.src);
     if (!fs.existsSync(src)) throw err('NO_AUDIO', `The sound ${x.src} is not there.`);
     const len = x.to != null ? Math.max(0.01, +x.to - (+x.from || 0)) : null;
     ins.push('-ss', String(+x.from || 0), ...(len ? ['-t', String(len)] : []), '-i', src);
     const at = Math.max(0, (+x.at || 0) - from), ms = Math.round(at * 1000);
-    const f = [`aresample=48000`, `aformat=channel_layouts=stereo`, `volume=${(+x.gain_db || 0)}dB`];
+    const chain = chainOf(x.kind, x), gain = LEVELS[x.kind] != null ? await kindGain(src, x.kind, x) : +x.gain_db || 0;
+    const f = [`aresample=48000`, `aformat=channel_layouts=stereo`, ...(chain ? [chain] : []), `volume=${gain.toFixed(2)}dB`];
     if (x.fade_in) f.push(`afade=t=in:st=0:d=${+x.fade_in}`);
     if (x.fade_out && len) f.push(`afade=t=out:st=${Math.max(0, len - x.fade_out)}:d=${+x.fade_out}`);
     f.push(`adelay=${ms}|${ms}`);
     parts.push(`[${i}:a]${f.join(',')}[a${i}]`);
-  });
+  }
   const graph = `${parts.join(';')};${audio.map((_, i) => `[a${i}]`).join('')}amix=inputs=${audio.length}:normalize=0:dropout_transition=0,alimiter=limit=0.89:level=0,atrim=0:${seconds},apad=whole_dur=${seconds}[mix]`;
   if (format === 'png') { await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', ...ins, '-filter_complex', graph, '-map', '[mix]', '-c:a', 'pcm_s16le', path.join(out, 'audio.wav')]); return; }
   // a finished full-frame piece is brought to the delivery level (a linear gain, with the limiter catching what that pushes over)
@@ -375,9 +380,9 @@ async function mixAudio({ audio, dir, out, format, from, seconds, work, master =
   if (master != null) {
     const wav = path.join(work, 'mix.wav');
     await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', ...ins, '-filter_complex', graph, '-map', '[mix]', '-c:a', 'pcm_s24le', wav]);
-    const { err: log } = await run(FF, ['-hide_banner', '-nostats', '-i', wav, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
+    const { err: log } = await run(FF, ['-hide_banner', '-nostats', '-i', wav, '-af', `${GLUE},ebur128=peak=true`, '-f', 'null', '-']);
     const { lufs } = parseEbur(log);
-    if (Number.isFinite(lufs) && lufs > -70) gain = `volume=${Math.max(-12, Math.min(24, master - lufs)).toFixed(2)}dB,alimiter=limit=0.89:level=0,`;
+    if (Number.isFinite(lufs) && lufs > -70) gain = `${masterFilter(master - lufs, seconds)},`;
   }
   const tmp = path.join(work, `withsound${ENCODE[format].ext}`);
   await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', out, ...ins, '-filter_complex', graph.replace(/\[(\d+):a\]/g, (_, n) => `[${+n + 1}:a]`).replace('[mix]', `,${gain}anull[mix]`), '-map', '0:v', '-map', '[mix]', '-c:v', 'copy', ...ENCODE[format].a, ...(gain ? ['-metadata', `comment=${MASTERED_TAG}`] : []), '-shortest', ...(format === 'mp4' ? ['-movflags', '+faststart'] : []), tmp]);
@@ -606,7 +611,7 @@ async function renderHyperframes(sc, o) {
 /**
  * spec: { size: '1920x1080' | aspect, fps, clips: [{ src, from, to, transition?: { type: xfade name | 'scene', scene, ms } }],
  * base?: one file instead of clips, layers: [{ src, at, from, to, x, y, w, h (fractions), opacity, border?: '#hex' }],
- * audio: [{ src, at, from, to, gain_db, duck? }], keep_audio: true, out }. Paths are from spec's folder (base). → { file, seconds }
+ * audio: [{ src, at, from, to, gain_db, duck?, kind?: voice | music | bed | sfx }], keep_audio: true, out }. Paths are from spec's folder (base). → { file, seconds }
  */
 export async function compose(spec, { base = process.cwd(), log = () => {} } = {}) {
   const P = (f) => path.resolve(base, f);
@@ -675,12 +680,18 @@ export async function compose(spec, { base = process.cwd(), log = () => {} } = {
     if (L.audio && !isImg) { const ms = Math.round(at * 1000); f.push(`[${n}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${+L.gain_db || 0}dB,adelay=${ms}|${ms}[la${k}]`, `[${al}][la${k}]amix=inputs=2:normalize=0:duration=first[lam${k}]`); al = `lam${k}`; }
     n++;
   }
-  // more sound: music beds and effects, mixed with the clips' own sound (a bed ducks under it when duck is set)
-  for (const [k, x] of (spec.audio || []).entries()) {
+  // more sound, mixed with the clips' own: a voice first so a duck hears it, music and beds next, and all the effects last as one stem
+  const stemDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pp-sfx-'));
+  const list = (spec.audio || []).filter((x) => x.kind !== 'sfx').sort((a, b) => (KIND_ORDER[a.kind] ?? 1) - (KIND_ORDER[b.kind] ?? 1)), effects = (spec.audio || []).filter((x) => x.kind === 'sfx');
+  if (effects.length) list.push({ src: await sfxStem(effects.map((x) => ({ ...x, src: P(x.src) })), { dir: base, seconds: total, work: stemDir }), at: 0 });
+  const said = list.find((x) => x.kind === 'voice'), voiceAt = said ? LEVELS.voice : voiceClip ? (await measure(P(voiceClip.src))).lufs ?? -18 : -18;
+  for (const [k, x] of list.entries()) {
     ins.push('-ss', String(+x.from || 0), ...(x.to != null ? ['-t', String(+x.to - (+x.from || 0))] : []), '-i', P(x.src));
-    const ms = Math.round((+x.at || 0) * 1000);
-    f.push(`[${n}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${+x.gain_db || 0}dB${x.fade_in ? `,afade=t=in:d=${x.fade_in}` : ''},adelay=${ms}|${ms}[m${k}]`);
-    if (x.duck) { f.push(`[${al}]asplit[sc${k}][dry${k}]`, `[m${k}][sc${k}]sidechaincompress=threshold=0.03:ratio=4:attack=20:release=400[dk${k}]`, `[dry${k}][dk${k}]amix=inputs=2:normalize=0:duration=first[am${k}]`); }
+    const ms = Math.round((+x.at || 0) * 1000), chain = chainOf(x.kind, x), moves = x.kind === 'music' && x.drops?.length ? musicFilter({ drops: x.drops, end: total, base: x.base }) : '';
+    const level = LEVELS[x.kind] != null ? await kindGain(P(x.src), x.kind, x) : +x.gain_db || 0;
+    const depth = x.duck === false ? 0 : typeof x.duck === 'number' ? x.duck : x.kind === 'bed' ? DUCK.bed : x.kind === 'music' || x.duck ? DUCK.narration : 0;
+    f.push(`[${n}:a]aresample=48000,aformat=channel_layouts=stereo${chain ? `,${chain}` : ''},volume=${level.toFixed(2)}dB${moves ? `,${moves}` : ''}${x.fade_in ? `,afade=t=in:d=${x.fade_in}` : ''}${x.fade_out ? `,afade=t=out:st=${Math.max(0, (x.to != null ? +x.to - (+x.from || 0) : total - (+x.at || 0)) - x.fade_out).toFixed(3)}:d=${x.fade_out}` : ''},adelay=${ms}|${ms}[m${k}]`);
+    if (depth) { f.push(`[${al}]asplit[sc${k}][dry${k}]`, `[m${k}][sc${k}]${duckFilter(voiceAt, depth)}[dk${k}]`, `[dry${k}][dk${k}]amix=inputs=2:normalize=0:duration=first[am${k}]`); }
     else f.push(`[${al}][m${k}]amix=inputs=2:normalize=0:duration=first[am${k}]`);
     al = `am${k}`; n++;
   }
@@ -690,14 +701,15 @@ export async function compose(spec, { base = process.cwd(), log = () => {} } = {
   await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', ...ins, '-filter_complex', [...f, `[${vl}]tpad=stop_mode=clone:stop_duration=0.5[vout]`].join(';'), '-map', '[vout]', '-map', `[${al}]`, '-frames:v', String(Math.round(total * fps)), '-t', String(total), ...ENCODE.mp4.v, '-r', String(fps), ...ENCODE.mp4.a, '-movflags', '+faststart', out]);
   // master: the whole piece to this level with one gain and a limiter, as render --final does, and marked so a voiced video can bring it back down
   if (spec.master != null) {
-    const { err: m } = await run(FF, ['-hide_banner', '-nostats', '-i', out, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
+    const { err: m } = await run(FF, ['-hide_banner', '-nostats', '-i', out, '-af', `${GLUE},ebur128=peak=true`, '-f', 'null', '-']);
     const { lufs } = parseEbur(m);
     if (Number.isFinite(lufs) && lufs > -70) {
       const tmp = out.replace(/(\.[^.]+)$/, '.mastered$1');
-      await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', out, '-map', '0', '-c:v', 'copy', '-af', `volume=${Math.max(-12, Math.min(24, +spec.master - lufs)).toFixed(2)}dB,alimiter=limit=0.89:level=0`, ...ENCODE.mp4.a, '-metadata', `comment=${MASTERED_TAG}`, '-movflags', '+faststart', tmp]);
+      await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', out, '-map', '0', '-c:v', 'copy', '-af', masterFilter(+spec.master - lufs, total), ...ENCODE.mp4.a, '-metadata', `comment=${MASTERED_TAG}`, '-movflags', '+faststart', tmp]);
       fs.renameSync(tmp, out);
     }
   }
+  fs.rmSync(stemDir, { recursive: true, force: true });
   log(`harness: composed ${total.toFixed(2)} s in ${Math.round((Date.now() - t0) / 1000)} s -> ${out}`);
   return { file: out, seconds: total, width: W, height: H, fps, ...(levelled.length ? { levelled } : {}) };
 }

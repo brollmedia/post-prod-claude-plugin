@@ -196,7 +196,7 @@
       $('note').style.transform = `translateY(${(1 - b) * 115}%)`;
     },
     // the beans pour in on a rising breath, the number lands once, and the caption gets one tick
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       { sfx: 'riser', hit: LAND - 0.5, dur: 2.2, seed: 3, note: 110, gain_db: -21 },
       { sfx: 'impact', hit: LAND - 0.5, seed: 6, size: 1, gain_db: -13 },

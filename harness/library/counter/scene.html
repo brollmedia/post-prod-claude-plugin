@@ -93,7 +93,7 @@
       head.setAttribute('cx', hx); head.setAttribute('cy', hy); head.style.opacity = PP.p(t, A - F(6), A);
     },
     // the climb gets a quiet rollup that slows with it; one tick as it lands, and that is all an overlay needs
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'rollup', hit: B, dur: Math.min(B - A, 6), seed: 3, gain_db: -26 },
       { sfx: 'tick', hit: B + F(1), seed: 4, note: 2300, gain_db: -24 },
     ]),

@@ -205,6 +205,20 @@ export function makeSfx(kind, o = {}) {
   return { file, kind, seconds: n / SR, peak_s: peak };
 }
 
+/** A small room's impulse, for the effects' reverb send. */
+export function roomImpulse(file) {
+  const m = new Float32Array(Math.round(0.3 * SR)); m[0] = 1;
+  fs.writeFileSync(file, wav([room(m, { size: 0.6, seed: 3 }), room(m, { size: 0.64, seed: 8 })]));
+  return file;
+}
+/** Seconds into a file of its loudest sample, so a recording's peak can land on the frame. */
+export async function peakSeconds(file) {
+  const raw = await ff(['-hide_banner', '-loglevel', 'error', '-i', path.resolve(file), '-ac', '1', '-ar', '12000', '-f', 'f32le', '-'], { bin: true });
+  const s = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.length - (raw.length % 4)));
+  let at = 0, top = 0; for (let i = 0; i < s.length; i++) { const a = Math.abs(s[i]); if (a > top) { top = a; at = i; } }
+  return at / 12000;
+}
+
 // ── the check ──
 const ff = (args, { bin = false } = {}) => new Promise((res, rej) => {
   const p = spawn(FF, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }); const o = [], e = [];
@@ -280,7 +294,7 @@ export function hitOffsets(samples, sr, hits, win = 0.12) {
 export async function soundCheck(file, o = {}) {
   const src = path.resolve(file);
   if (!fs.existsSync(src)) throw err('NO_AUDIO', `Nothing at ${src}.`);
-  const target = o.target == null ? -14 : +o.target, fps = +o.fps || 30;
+  const target = o.target == null ? null : +o.target, fps = +o.fps || 30; // -14 is for a finished voiced mix: asked for, never assumed
   const log = await ff(['-hide_banner', '-nostats', '-i', src, '-map', '0:a:0', '-af', 'ebur128=peak=true', '-f', 'null', '-']).catch((e) => { throw /does not contain|matches no streams/.test(e.message) ? err('NO_AUDIO', 'This file has no sound.') : e; });
   const m = parseEbur(log);
   const raw = await ff(['-hide_banner', '-loglevel', 'error', '-i', src, '-map', '0:a:0', '-ac', '2', '-ar', '48000', '-f', 'f32le', '-'], { bin: true });
@@ -291,7 +305,7 @@ export async function soundCheck(file, o = {}) {
   const tail = s.subarray(Math.max(0, s.length - 480)); let end = 0; for (const v of tail) end = Math.max(end, Math.abs(v));
   const hits = o.hits?.length ? hitOffsets(s, 48000, o.hits.map(Number)) : [];
   const problems = [], frame = 1000 / fps;
-  if (m.lufs != null && o.overlay !== true && Math.abs(m.lufs - target) > 1) problems.push({ code: 'LOUDNESS', what: `${m.lufs} LUFS, target ${target}: ${m.lufs > target ? 'too loud' : 'too quiet'}` });
+  if (m.lufs != null && target != null && o.overlay !== true && Math.abs(m.lufs - target) > 1) problems.push({ code: 'LOUDNESS', what: `${m.lufs} LUFS, target ${target}: ${m.lufs > target ? 'too loud' : 'too quiet'}` });
   if (m.true_peak_db != null && m.true_peak_db > -1) problems.push({ code: 'TRUE_PEAK', what: `true peak ${m.true_peak_db} dBTP is over -1` });
   if (clipped > 3) problems.push({ code: 'CLIPPED', what: `${clipped} samples at full scale` });
   if (end > dbToGain(-40)) problems.push({ code: 'CUT_OFF', what: 'the sound is still going on the last sample: fade it or it clicks' });

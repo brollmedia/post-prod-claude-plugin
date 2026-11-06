@@ -1,6 +1,6 @@
 ---
 name: animate
-description: Make any animation, motion graphic or edit for a video with post-prod's harness, at senior motion designer standard from the first prompt, with no reference needed (titles, lower thirds, subtitles, callouts, charts, counters, stat reveals, title sequences, maps, diagrams, screen-recording zooms, logo reveals and end screens, countdowns, before/after and split screens, meme captions, 3D, transitions, with sound), render it exactly (any size, 9:16 too, with alpha for overlays), put it on the footage, and send it to post-prod.io for review, then change it from the notes. Follows the creator's style when they have one. Also renders Remotion and HyperFrames projects.
+description: Make any animation, motion graphic or edit for a video with post-prod's harness, at senior motion designer standard from the first prompt, with no reference needed (titles, lower thirds, subtitles, callouts, charts, counters, stat reveals, title sequences, maps, diagrams, screen-recording zooms, logo reveals and end screens, countdowns, before/after and split screens, meme captions, 3D, transitions), render it exactly (any size, 9:16 too, with alpha for overlays), put it on the footage, and send it to post-prod.io for review, then change it from the notes. Follows the creator's style when they have one. Also renders Remotion and HyperFrames projects.
 when_to_use: Phrases like /post-prod:animate, make an animation, make a graphic, motion graphics, lower third, animated title, title sequence, stat reveal, add a map, a chart, a counter, an end screen, a callout, an intro, a transition, sound design, render this Remotion project, render my HyperFrames composition.
 model: claude-opus-5-5
 argument-hint: "[what to make, or a post-prod.io link]"
@@ -29,13 +29,13 @@ table of what else to read. Then read `${CLAUDE_PLUGIN_ROOT}/harness/README.md` 
 Run `animate.mjs hf status` first. With `installed: true`, make it on HyperFrames: follow `${CLAUDE_PLUGIN_ROOT}/craft/hyperframes.md` in place of steps 2 to 5 below, and it falls back to these steps if it can't run. Otherwise, go on here.
 1. Write the treatment (CORE.md). Then read the craft files the job needs.
 2. `list` and `looks`, write `look.json`, then `new <scene> <folder> --sheet look.json` (`--look <name> --named` only when the person named one). A brand-new kind of piece starts from the closest scene's structure, not a blank page. Change what the idea needs, not only the props.
-3. Draw everything from the time `t` alone (`PP.scene({ duration, frame(t), sound })`), with the style's tokens, in `vw`/`vh` or from `PP.size`, so 9:16 and 1:1 work too. Keep one table of timings at the top, with the sound timed from the same numbers.
+3. Draw everything from the time `t` alone (`PP.scene({ duration, frame(t), sound })`), with the style's tokens, in `vw`/`vh` or from `PP.size`, so 9:16 and 1:1 work too. Keep one table of timings at the top.
 4. `check <folder>`, fix what it prints, and look at `out/check/sheet.jpg` as `craft/critique.md` says. On anything full-frame or important, get the `art-director` agent's cold read (only the brief, the sheet's path, `no-words.jpg`, and after the render the video).
 5. `render <folder> --final`, at the video's size and fps (`--aspect 9:16` for Shorts). It refuses until `check` is clean for exactly those files; CORE.md says what to do:
    - `--format prores` (alpha) for anything that sits over footage;
    - `--format mp4` for a full-screen piece;
    - `--format webm` or `png` when their editor wants those.
-6. `sound <file> --hits <the render's hits>` (add `--overlay` for an overlay: only the mix target differs). Fix what it says. A full-frame piece needs sound, or `--final` refuses it (`SILENT_PIECE`). An overlay under a voice may stay silent. So may a full-frame piece that plays under one, or a meme whose clip brings its sound: `--accept SILENT_PIECE --because "<why>"`, and say so in your reply.
+6. No sound unless they asked for it or brought their own. A library scene is silent until `props.sound` is true. When there is sound: `sound <file> --hits <the render's hits>` (add `--overlay` for an overlay: only the mix target differs), and fix what it says.
 7. `SLOP` means it has an AI-default look. Fix it; only pass `--allow-slop "<their words>"` when the person asked for that look.
 
 ## 3. Put it on the footage

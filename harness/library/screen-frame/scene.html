@@ -110,7 +110,7 @@
       $('stage').style.transform = `translate(${sx - fx * Z}px, ${sy - fy * Z}px) scale(${Z})`;
     },
     // the click is a real click, the zoom a soft move each way; the room stays quiet under a voice
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'room', at: 0, dur: D, seed: 2, gain_db: -46 },
       { sfx: 'tick', hit: tClick, seed: 3, note: 1900, gain_db: -22 },
       { sfx: 'whoosh', hit: zIn0 + (zIn1 - zIn0) * 0.5, dur: 0.7, seed: 4, gain_db: -24 },

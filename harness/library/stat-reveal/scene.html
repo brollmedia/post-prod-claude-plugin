@@ -123,7 +123,7 @@
       $('times').style.opacity = PP.p(t, PAY, PAY + F(4));
       $('times').style.transform = `scale(${0.92 + 0.08 * s})`;
     },
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'rollup', hit: LAND, dur: COUNT, seed: 3, gain_db: -19 },
       { sfx: 'swell', hit: LAND, dur: 0.7, seed: 2, gain_db: -18 },
       { sfx: 'impact', hit: LAND, seed: 5, size: 0.8, gain_db: -9 },

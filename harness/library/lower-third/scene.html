@@ -85,7 +85,7 @@
       }
     },
     // Sound in a graphic is a gesture, not a noise: one soft move in, one tick as the name lands, quieter still going out.
-    sound: () => (P.sound === false ? [] : [
+    sound: () => (P.sound !== true ? [] : [
       { sfx: 'whoosh', hit: T.plate + LEN.plate * 0.3, dur: 0.36, seed: 4, gain_db: -22, low: 500, high: 4200, dir: 'right' },
       { sfx: 'tick', hit: T.name + SWEEP * 0.6, seed: 2, gain_db: -27, note: 1900 },
       { sfx: 'whoosh', hit: OUT + OUTLEN * 0.5, dur: 0.26, seed: 7, gain_db: -27, low: 700, high: 3600, dir: 'left' },

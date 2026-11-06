@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { run, probe, FF, loadWords } from './footage-run.js';
+import { run, probe, FF, loadWords, graphFileArgs } from './footage-run.js';
 import { levelGain, UNDER_VOICE } from './harness-sound.js';
 
 const err = (code, message) => Object.assign(new Error(message), { code });
@@ -298,7 +298,7 @@ export async function applyEffects(spec, { base = process.cwd(), quality = 'high
       fs.writeFileSync(script, `${g.graph};${parts.join(';')}`);
       audio = ['-map', '[aout]', '-c:a', 'aac', '-b:a', '256k'];
     }
-    await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, ...g.inputs.flat(), '-filter_complex_script', script, '-map', g.out, ...audio,
+    await run(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, ...g.inputs.flat(), ...await graphFileArgs(script), '-map', g.out, ...audio,
       '-c:v', 'libx264', '-preset', quality === 'draft' ? 'veryfast' : 'medium', '-crf', crf, '-pix_fmt', 'yuv420p', '-r', num(fps), '-movflags', '+faststart', out]);
     const got = await probe(out);
     return { file: out, layers: layers.map((l) => ({ type: l.type, from: l.from, to: l.to })), length_s: got.duration, input_length_s: info.duration, warnings };
