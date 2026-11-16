@@ -3,7 +3,7 @@ name: watch
 description: Watch post-prod.io in the background and make the person's review notes into real changes to the video the moment they post them in the review room (Review with voice, typed notes sent to Claude, or a message in the room's Edit with Claude chat). Edits the video's source project when it is made from one (code, an editing project), else the footage itself with ffmpeg, and uploads the result as the next version. Runs as a quiet loop until stopped. Use when the user runs /post-prod:watch, or asks Claude to watch post-prod, keep an eye on their review, or make their notes as they come in.
 when_to_use: Phrases like watch post-prod, watch my review, make my notes as I post them, keep watching, Edit with Claude. Needs the post-prod MCP server connected (a paid post-prod.io plan).
 model: claude-opus-5-5
-allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status mcp__plugin_post-prod_post-prod__reply_to_bundle Agent Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
+allowed-tools: mcp__plugin_post-prod_post-prod__wait_for_feedback mcp__plugin_post-prod_post-prod__claim_task mcp__plugin_post-prod_post-prod__task_progress mcp__plugin_post-prod_post-prod__ask_person mcp__plugin_post-prod_post-prod__complete_task mcp__plugin_post-prod_post-prod__list_tasks mcp__plugin_post-prod_post-prod__get_review mcp__plugin_post-prod_post-prod__get_frame mcp__plugin_post-prod_post-prod__get_transcript mcp__plugin_post-prod_post-prod__get_version_context mcp__plugin_post-prod_post-prod__set_version_notes mcp__plugin_post-prod_post-prod__read_version_file mcp__plugin_post-prod_post-prod__get_download mcp__plugin_post-prod_post-prod__upload_file mcp__plugin_post-prod_post-prod__get_style_guide mcp__plugin_post-prod_post-prod__list_attachments mcp__plugin_post-prod_post-prod__read_attachment mcp__plugin_post-prod_post-prod__reply_to_note mcp__plugin_post-prod_post-prod__get_words mcp__plugin_post-prod_post-prod__find_takes mcp__plugin_post-prod_post-prod__get_section mcp__plugin_post-prod_post-prod__upload_section mcp__plugin_post-prod_post-prod__splice_status mcp__plugin_post-prod_post-prod__reply_to_bundle mcp__plugin_post-prod_post-prod__list_transfers mcp__plugin_post-prod_post-prod__get_transfer_link mcp__plugin_post-prod_post-prod__confirm_transfer Agent Read Edit Write Glob Grep Bash(ffmpeg:*) Bash(ffprobe:*) Bash(curl:*) Bash(curl.exe:*) Bash(node:*) Bash(npm:*) Bash(npx:*) Bash(python:*) Bash(python3:*) Bash(mkdir:*) Bash(ls:*) Bash(stat:*) Bash(wc:*) Bash(cp:*) Bash(mv:*) Bash(cat:*) Bash(head:*) Bash(tail:*) mcp__plugin_post-prod_post-prod__attach_working_files Bash(yt-dlp:*) Bash(winget:*) Bash(where:*) Bash(rm:*) Bash(claude:*) PowerShell
 ---
 
 # Edit with Claude
@@ -61,14 +61,15 @@ A long watch loop forgets what it read at the start. Before each job, read what 
 
 ## The loop (until stopped)
 
-Call `wait_for_feedback` with `watch: true`, `plugin: "0.6.2"` (this plugin's version: post-prod.io says when it is out of date)
-and your model name in `model` (and `for_team` in team mode). On the first call add `tools` from `animate.mjs hf status`. Do not pass
+Call `wait_for_feedback` with `watch: true`, `plugin: "0.7.0"` (this plugin's version: post-prod.io says when it is out of date)
+and your model name in `model` (`for_team` in team mode; `downloads: true` if asked, below). On the first call add `tools` from `animate.mjs hf status`. Do not pass
 `since` or `timeout_seconds`: the server keeps your place and waits as long as it safely can (about 4.5 minutes).
 
 - **`{"idle":true,"next":"wait"}`**: nothing happened. Call `wait_for_feedback` again at once. Write nothing at all: no
   "still watching", no status line, no thinking out loud. Idle turns must stay tiny.
 - **`{"idle":true,"next":"stop"}`**: 20 minutes with nothing to do (nobody reviewing). Say one line, "Going to sleep after 20 minutes with
   nothing to do. Type /post-prod:watch to wake me.", and stop. The room says the same.
+- **`{"transfers":{"waiting":2},"next":"wait"}`**: files wait for this edit station. Do Transfers below, then wait again.
 - **`{"stopped":true,"next":"stop"}`**: the person pressed Stop on the Your Claude page in post-prod.io. Say one line, "Stopped
   from post-prod.io. Type /post-prod:watch to start again.", and stop.
 - **A server restart** (`retry: true`): wait a few seconds, then call it again.
@@ -112,14 +113,7 @@ your changes stay in their project, as an editor's would.
 
 ### Footage (no project)
 
-Finding ffmpeg (seconds, never minutes): run `ffmpeg -version`. If it is not found, look in these places only, in this order:
-- Windows after a winget install: `$LOCALAPPDATA/Microsoft/WinGet/Links/ffmpeg.exe` (in PowerShell `$env:LOCALAPPDATA/Microsoft/WinGet/Links/ffmpeg.exe`). A shell opened before the install has no PATH
-  entry for it yet.
-- `where ffmpeg` on Windows, `command -v ffmpeg` elsewhere.
-- `/opt/homebrew/bin`, `/usr/local/bin`, `C:/ffmpeg/bin`.
-Never search the disk recursively for it (Get-ChildItem -Recurse, find /): that takes minutes while the person waits. Once found,
-use its full path (or put its folder on PATH for the session) for the rest of the loop. If it is in none of those places, `ask_person`
-to install it.
+Finding ffmpeg: run `ffmpeg -version`. Not found: read `${CLAUDE_PLUGIN_ROOT}/skills/watch/references/footage.md` (seconds, never minutes).
 
 Every job brief hands you the exact uploaded file as a ready command (it saves to `post-prod-folder/video/`): run it first. Otherwise `get_download` with `what: "video"` gives the exact uploaded file. If it says only the playback copy can be had, say so in
 your reply. Work in a folder of its own, `post-prod-folder/work/V<the new number>/`; never touch the original. Use ffmpeg for the change (grade, black and white
@@ -184,6 +178,13 @@ lines back: "Got it: a 60-second launch film made in code, logo green #3DDC97. S
 and what is attached. If it asks for a change, make it for real, as for notes, and upload the next version. Otherwise just
 answer. `complete_task` with your reply as the summary (and `version_id` when you made one).
 
+## Transfers: download files sent for the edit station
+
+"Download transfers to <folder>" (or `/post-prod:watch downloads <folder>`): remember the folder (none yet: ask once, "Which folder should transfers go in?")
+and pass `downloads: true` on every wait. When asked, and at `{"transfers":...}`, read `${CLAUDE_PLUGIN_ROOT}/skills/watch/references/transfers.md`,
+do it, then wait again. Say one line per file: "Downloaded <name> (30 GB) to <path>. Removed from post-prod in 24 hours."
+Never delete or overwrite a file already there (add " (2)").
+
 ## How you sound
 
 Like Opus in a chat: first person, short, natural, specific. No tool-speak, no ids, no "task completed".
@@ -206,7 +207,7 @@ Like Opus in a chat: first person, short, natural, specific. No tool-speak, no i
   leave a taken task) and carry on with the loop.
 - One command per shell call, with full paths: no `cd … &&`, no `;`, no pipes, no `$(…)`. A chained command
   asks the person for permission in this terminal (they are in the room and never see it), so the loop stops.
-- Keep this terminal quiet: one line when you start, one line if you stop, nothing per wait, nothing per task.
+- Keep this terminal quiet: one line when you start, one line if you stop, nothing per wait, nothing per task (a downloaded transfer: one line).
 - Stop when the person presses Esc or says stop. If you stop for any other reason, say in one line how to start again:
   `/post-prod:watch`.
 

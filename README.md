@@ -85,6 +85,13 @@ The tab shows it as a conversation: your messages, its replies and questions, a 
 switches to it). Idle, it costs almost nothing: one wait every ~9 minutes that answers a few bytes, and after two hours with
 nothing to do it goes to sleep (type `/post-prod:watch` to wake it). Full guide: https://post-prod.io/tutorials/edit-with-claude
 
+### Transfers: files sent for your edit station (0.7.0)
+
+Say "download transfers to ~/Footage" while it watches (or start it with `/post-prod:watch downloads ~/Footage`) and your
+Claude downloads each file a sender drops into a transfer link into that folder, one subfolder per project, checks the size,
+and confirms it in post-prod, which removes the transfer after the day set in the workspace. It never overwrites a file that
+is already there. Transfers come with Creator+ and Agency; when the month runs out, the owner tops up on Billing.
+
 ### The connection
 
 `.mcp.json` registers the server with a `headersHelper` (`bin/post-prod-headers.sh`): with a personal key in
